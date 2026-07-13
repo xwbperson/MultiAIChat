@@ -332,6 +332,25 @@ function createWindow() {
 
   // Context menu for main window
   setupContextMenu(mainWindow.webContents, () => mainWindow);
+
+  // Auto-open first site on startup
+  mainWindow.webContents.on('did-finish-load', () => {
+    const sites = configStore.getSites();
+    if (sites.length > 0) {
+      // Sort by order
+      sites.sort((a, b) => (a.order || 0) - (b.order || 0));
+      const firstSite = sites[0];
+      const defaultAccount = firstSite.accounts.find(a => a.isDefault) || firstSite.accounts[0];
+
+      // Send message to renderer to open first site
+      setTimeout(() => {
+        mainWindow.webContents.send('open:firstSite', {
+          siteId: firstSite.id,
+          accountId: defaultAccount.id
+        });
+      }, 500);
+    }
+  });
 }
 
 app.whenReady().then(() => {

@@ -51,5 +51,6 @@ contextBridge.exposeInMainWorld('api', {
   onBadgeUpdate: (callback) => ipcRenderer.on('badge:update', (e, data) => callback(data)),
   onHibernateStatus: (callback) => ipcRenderer.on('hibernate:statusChanged', (e, data) => callback(data)),
   onOpenSiteManager: (callback) => ipcRenderer.on('open:siteManager', () => callback()),
-  onOpenSettings: (callback) => ipcRenderer.on('open:settings', () => callback())
+  onOpenSettings: (callback) => ipcRenderer.on('open:settings', () => callback()),
+  onOpenFirstSite: (callback) => ipcRenderer.on('open:firstSite', (e, data) => callback(data))
 });

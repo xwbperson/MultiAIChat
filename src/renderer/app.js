@@ -72,6 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
   window.api.onOpenSiteManager?.(() => siteManager.open());
   window.api.onOpenSettings?.(() => settingsPanel.open());
 
+  // Auto-open first site on startup
+  window.api.onOpenFirstSite?.((data) => {
+    if (data?.siteId && data?.accountId) {
+      sidebar.selectSite(data.siteId, data.accountId);
+    }
+  });
+
   const siteManagerBtn = document.createElement('button');
   siteManagerBtn.className = 'sidebar-btn';
   siteManagerBtn.title = '站点管理';

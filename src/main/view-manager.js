@@ -1,7 +1,7 @@
 const { WebContentsView } = require('electron');
-const path = require('path');
 const { getSession, setProxy } = require('./session-manager');
 const { setupContextMenu } = require('./context-menu');
+const { toChromeUserAgent } = require('./browser-environment');
 
 class ViewManager {
   constructor(mainWindow, dependencies = {}) {
@@ -44,15 +44,14 @@ class ViewManager {
     const view = new this.WebContentsView({
       webPreferences: {
         session: ses,
-        preload: path.join(__dirname, 'webview-preload.js'),
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        sandbox: true,
+        spellcheck: true
       }
     });
 
-    const userAgent = ses.getUserAgent?.()
-      ?.replace(/\sElectron\/\S+/g, '')
-      .replace(/\sAI Workspace\/\S+/g, '');
+    const userAgent = toChromeUserAgent(ses.getUserAgent?.());
     if (userAgent) view.webContents.setUserAgent(userAgent);
 
     this.mainWindow.contentView.addChildView(view);

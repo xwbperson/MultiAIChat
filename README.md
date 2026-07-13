@@ -8,6 +8,7 @@
 
 - **多站点聚合：** 内置 ChatGPT、Claude、DeepSeek、Kimi、豆包、Copilot、Gemini 和 Perplexity，也可添加任意 HTTP/HTTPS 站点。
 - **多账号隔离：** 每个账号使用独立的 Electron Session Partition，Cookie、缓存和登录状态互不影响。
+- **Chrome 兼容环境：** 站点页面使用 Chromium 原生浏览器对象和统一的 Chrome User-Agent，不向网站暴露 Electron 或应用产品标记。
 - **内存控制：** 通过 LRU 策略保留当前页和最近使用页，空闲页面延迟休眠并在再次访问时恢复原 URL。
 - **灵活代理：** 支持直连、系统代理、HTTP/SOCKS5 默认代理，以及逐站覆盖；切换代理后会关闭旧连接并重载页面。
 - **站点管理：** 支持添加、编辑、删除、排序、自定义图标、快捷键和账号名称。

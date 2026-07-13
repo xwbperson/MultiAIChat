@@ -15,7 +15,7 @@ class FakeWebContents extends EventEmitter {
     };
   }
 
-  setUserAgent() {}
+  setUserAgent(userAgent) { this.userAgent = userAgent; }
   setWindowOpenHandler() {}
   getURL() { return this.url; }
   close() { this.closed = true; }
@@ -27,13 +27,46 @@ class FakeWebContents extends EventEmitter {
 }
 
 class FakeWebContentsView {
-  constructor() {
+  constructor(options = {}) {
+    this.options = options;
     this.webContents = new FakeWebContents();
   }
 
   setVisible(visible) { this.visible = visible; }
   setBounds(bounds) { this.bounds = bounds; }
 }
+
+test('site views use a sandboxed Chrome-like environment without a fingerprinting preload', async () => {
+  const session = {
+    getUserAgent: () => (
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+      + 'AppleWebKit/537.36 (KHTML, like Gecko) '
+      + 'Chrome/145.0.0.0 Safari/537.36 Electron/43.1.0 ai-workspace/1.0.0'
+    )
+  };
+  const manager = new ViewManager(createWindow(), {
+    WebContentsView: FakeWebContentsView,
+    getSession: () => session,
+    setProxy: async () => {},
+    setupContextMenu: () => {}
+  });
+
+  const viewData = await manager.createView(
+    { id: 'chat', name: 'Chat', url: 'https://chat.example/' },
+    { id: 'personal', partition: 'persist:personal' }
+  );
+
+  assert.equal(viewData.view.options.webPreferences.contextIsolation, true);
+  assert.equal(viewData.view.options.webPreferences.nodeIntegration, false);
+  assert.equal(viewData.view.options.webPreferences.sandbox, true);
+  assert.equal(viewData.view.options.webPreferences.preload, undefined);
+  assert.equal(
+    viewData.view.webContents.userAgent,
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+      + 'AppleWebKit/537.36 (KHTML, like Gecko) '
+      + 'Chrome/145.0.0.0 Safari/537.36'
+  );
+});
 
 function createWindow() {
   return {

@@ -10,6 +10,12 @@ const { clearSessionData, resolveProxy, setProxy } = require('./session-manager'
 const faviconManager = require('./favicon-manager');
 const FaviconCache = require('./favicon-cache');
 const { getKeyboardCommand } = require('./keyboard-shortcuts');
+const { toChromeUserAgent } = require('./browser-environment');
+
+// Keep every Electron session on the same Chromium user agent without
+// advertising Electron or the desktop application's product name.
+const browserUserAgent = toChromeUserAgent(app.userAgentFallback);
+if (browserUserAgent) app.userAgentFallback = browserUserAgent;
 
 let mainWindow;
 let viewManager;

@@ -2,8 +2,10 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { getWindowState, saveWindowState } = require('./window-manager');
 const configStore = require('./config-store');
+const ViewManager = require('./view-manager');
 
 let mainWindow;
+let viewManager;
 
 function createWindow() {
   const state = getWindowState();
@@ -30,6 +32,12 @@ function createWindow() {
   }
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+  viewManager = new ViewManager(mainWindow);
+
+  mainWindow.on('resize', () => {
+    viewManager.updateAllBounds();
+  });
 
   mainWindow.on('close', () => saveWindowState(mainWindow));
 
@@ -63,6 +71,26 @@ function createWindow() {
 
   ipcMain.handle('config:export', () => configStore.exportConfig());
   ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
+
+  ipcMain.handle('site:switch', async (e, siteId, accountId) => {
+    const sites = configStore.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) throw new Error(`Site not found: ${siteId}`);
+
+    const account = site.accounts.find(a => a.id === accountId);
+    if (!account) throw new Error(`Account not found: ${accountId}`);
+
+    let viewData = viewManager.getView(siteId, accountId);
+
+    if (!viewData) {
+      viewData = await viewManager.createView(site, account);
+    }
+
+    await viewManager.switchTo(siteId, accountId);
+    configStore.setActiveState(siteId, accountId);
+
+    return { success: true };
+  });
 }
 
 app.whenReady().then(createWindow);

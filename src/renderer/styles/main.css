@@ -748,13 +748,47 @@ html, body {
   color: var(--accent);
 }
 
+.account-label-text {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rename-account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.account-tag:hover .rename-account-btn {
+  opacity: 1;
+}
+
+.rename-account-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
 .remove-account-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 14px;
   height: 14px;
-  margin-left: 4px;
+  margin-left: 2px;
   padding: 0;
   background: transparent;
   border: none;
@@ -763,6 +797,11 @@ html, body {
   cursor: pointer;
   border-radius: 50%;
   transition: all 0.15s;
+  opacity: 0;
+}
+
+.account-tag:hover .remove-account-btn {
+  opacity: 1;
 }
 
 .remove-account-btn:hover {

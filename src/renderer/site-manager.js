@@ -83,7 +83,8 @@ class SiteManager {
             <div class="account-list-inline">
               ${site.accounts.map(acc => `
                 <span class="account-tag ${acc.isDefault ? 'default' : ''}">
-                  ${acc.label}
+                  <span class="account-label-text">${acc.label}</span>
+                  <button class="rename-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" data-label="${acc.label}" title="重命名">✎</button>
                   ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" title="删除账号">×</button>` : ''}
                 </span>
               `).join('')}
@@ -113,6 +114,13 @@ class SiteManager {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.removeAccount(btn.dataset.siteId, btn.dataset.accountId);
+      });
+    });
+
+    container.querySelectorAll('.rename-account-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.renameAccount(btn.dataset.siteId, btn.dataset.accountId, btn.dataset.label);
       });
     });
   }
@@ -461,6 +469,32 @@ class SiteManager {
       this.sidebar.render();
     } catch (err) {
       alert('删除账号失败: ' + err.message);
+    }
+  }
+
+  async renameAccount(siteId, accountId, currentLabel) {
+    const newLabel = prompt('输入新的账号名称:', currentLabel);
+    if (!newLabel || newLabel === currentLabel) return;
+
+    try {
+      // Update the account label in the site's accounts array
+      const sites = await window.api.getSites();
+      const site = sites.find(s => s.id === siteId);
+      if (!site) return;
+
+      const updatedAccounts = site.accounts.map(acc => {
+        if (acc.id === accountId) {
+          return { ...acc, label: newLabel };
+        }
+        return acc;
+      });
+
+      await window.api.updateSite(siteId, { accounts: updatedAccounts });
+      await this.renderSiteList();
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    } catch (err) {
+      alert('重命名失败: ' + err.message);
     }
   }
 }

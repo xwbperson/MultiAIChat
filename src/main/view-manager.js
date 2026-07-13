@@ -72,8 +72,12 @@ class ViewManager {
     });
 
     view.webContents.on('did-finish-load', () => {
-      viewData.state = 'idle';
       viewData.url = view.webContents.getURL();
+      // Only set to idle if this is NOT the currently active view
+      if (this.activeKey !== key) {
+        viewData.state = 'idle';
+      }
+      // If it's the active view, keep state as 'active'
     });
 
     return viewData;

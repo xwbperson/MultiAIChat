@@ -166,11 +166,15 @@ class SettingsPanel {
     this.isOpen = true;
     document.getElementById('settings-overlay').classList.remove('hidden');
     this.loadSettings();
+    // Hide the webview so overlay is visible
+    window.api.hideView?.();
   }
 
   close() {
     this.isOpen = false;
     document.getElementById('settings-overlay').classList.add('hidden');
+    // Show the webview again
+    window.api.showView?.();
   }
 
   loadSettings() {

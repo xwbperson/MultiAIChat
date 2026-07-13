@@ -256,6 +256,14 @@ function createWindow() {
     mainWindow.webContents.send('open:settings');
   });
 
+  // View visibility control for overlays
+  ipcMain.handle('view:hide', () => {
+    viewManager.hideActiveView();
+  });
+  ipcMain.handle('view:show', () => {
+    viewManager.showActiveView();
+  });
+
   ipcMain.handle('site:switch', async (e, siteId, accountId) => {
     const sites = configStore.getSites();
     const site = sites.find(s => s.id === siteId);

@@ -151,6 +151,20 @@ class ViewManager {
     return this.views.get(this.activeKey) || null;
   }
 
+  hideActiveView() {
+    const viewData = this.getActiveView();
+    if (viewData?.view) {
+      viewData.view.setVisible(false);
+    }
+  }
+
+  showActiveView() {
+    const viewData = this.getActiveView();
+    if (viewData?.view) {
+      viewData.view.setVisible(true);
+    }
+  }
+
   getAllViews() {
     const result = [];
     for (const [key, data] of this.views) {

@@ -43,11 +43,15 @@ class SiteManager {
     this.isOpen = true;
     document.getElementById('site-manager-overlay').classList.remove('hidden');
     await this.renderSiteList();
+    // Hide the webview so overlay is visible
+    window.api.hideView?.();
   }
 
   close() {
     this.isOpen = false;
     document.getElementById('site-manager-overlay').classList.add('hidden');
+    // Show the webview again
+    window.api.showView?.();
   }
 
   async renderSiteList() {

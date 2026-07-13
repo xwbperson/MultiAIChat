@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld('api', {
   forceRefresh: () => ipcRenderer.invoke('webview:forceRefresh'),
   setZoom: (level) => ipcRenderer.invoke('webview:setZoom', level),
 
+  // View visibility (for overlays)
+  hideView: () => ipcRenderer.invoke('view:hide'),
+  showView: () => ipcRenderer.invoke('view:show'),
+
   // Hibernate
   getHibernateStatus: () => ipcRenderer.invoke('hibernate:status'),
   hibernateSite: (siteId) => ipcRenderer.invoke('hibernate:site', siteId),

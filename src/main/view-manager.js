@@ -131,7 +131,7 @@ class ViewManager {
     this.views.delete(key);
 
     const newViewData = await this.createView(
-      { ...site, proxy: partition },
+      { ...site },
       { id: accountId, partition: partition }
     );
 

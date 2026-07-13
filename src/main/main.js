@@ -204,15 +204,27 @@ function createWindow() {
   ipcMain.handle('config:clearAllSiteData', async () => {
     const { clearSessionData } = require('./session-manager');
     const sites = configStore.getSites();
+
+    // Clear all session data first
     for (const site of sites) {
       for (const account of site.accounts) {
-        await clearSessionData(account.partition);
+        try {
+          await clearSessionData(account.partition);
+        } catch (err) {
+          console.error(`Failed to clear session for ${account.partition}:`, err);
+        }
       }
     }
-    for (const site of sites) {
-      configStore.deleteSite(site.id);
-    }
+
+    // Remove all views
     viewManager.removeAll();
+
+    // Reset active state
+    configStore.setActiveState(null, null);
+
+    // Clear all sites from config (use set to avoid iteration issues)
+    configStore.set('sites', []);
+
     return { success: true };
   });
 

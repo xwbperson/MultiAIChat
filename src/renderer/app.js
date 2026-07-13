@@ -98,13 +98,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.ctrlKey && e.key === 'Tab') {
       e.preventDefault();
       const sites = await window.api.getSites();
+      if (sites.length === 0) return;
+
       const currentIndex = sites.findIndex(s => s.id === sidebar.activeSiteId);
-      const nextIndex = e.shiftKey
-        ? (currentIndex - 1 + sites.length) % sites.length
-        : (currentIndex + 1) % sites.length;
+      let nextIndex;
+      if (currentIndex === -1) {
+        nextIndex = 0;
+      } else if (e.shiftKey) {
+        nextIndex = (currentIndex - 1 + sites.length) % sites.length;
+      } else {
+        nextIndex = (currentIndex + 1) % sites.length;
+      }
       const nextSite = sites[nextIndex];
-      const defaultAccount = nextSite.accounts.find(a => a.isDefault) || nextSite.accounts[0];
-      sidebar.selectSite(nextSite.id, defaultAccount.id);
+      if (nextSite) {
+        const defaultAccount = nextSite.accounts.find(a => a.isDefault) || nextSite.accounts[0];
+        sidebar.selectSite(nextSite.id, defaultAccount.id);
+      }
       return;
     }
 

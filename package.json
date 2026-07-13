@@ -7,7 +7,8 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "test": "node --test",
-    "check": "node scripts/check-syntax.js && npm test",
+    "test:ui": "node scripts/renderer-ui-check.cjs",
+    "check": "node scripts/check-syntax.js && npm test && npm run test:ui",
     "icon:generate": "node scripts/generate-icon.js",
     "prebuild": "npm run icon:generate",
     "build": "electron-builder --win --publish never",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "electron": "^43.1.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "playwright-core": "^1.61.1"
   }
 }

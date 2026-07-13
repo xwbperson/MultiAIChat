@@ -730,14 +730,22 @@ class SiteManager {
   }
 
   async addAccount(siteId) {
-    const label = prompt('账号名称:');
+    const label = await window.dialogs.requestText({
+      dialogId: 'account-name',
+      title: '添加账号',
+      label: '账号名称',
+      confirmLabel: '添加'
+    });
     if (!label) return;
 
-    const accountId = `${siteId}-${Date.now()}`;
-    await window.api.addAccount(siteId, { id: accountId, label });
-    await this.renderSiteList();
-    await this.sidebar.loadSites();
-    this.sidebar.render();
+    try {
+      await window.api.addAccount(siteId, { label });
+      await this.renderSiteList();
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    } catch (err) {
+      alert('添加账号失败: ' + err.message);
+    }
   }
 
   async removeAccount(siteId, accountId) {
@@ -766,7 +774,13 @@ class SiteManager {
   }
 
   async renameAccount(siteId, accountId, currentLabel) {
-    const newLabel = prompt('输入新的账号名称:', currentLabel);
+    const newLabel = await window.dialogs.requestText({
+      dialogId: 'rename-account',
+      title: '重命名账号',
+      label: '账号名称',
+      value: currentLabel,
+      confirmLabel: '保存'
+    });
     if (!newLabel || newLabel === currentLabel) return;
 
     try {

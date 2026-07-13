@@ -19,6 +19,18 @@ class ViewManager {
     return `${siteId}:${accountId}`;
   }
 
+  canSendToHost() {
+    if (!this.mainWindow || this.mainWindow.isDestroyed?.()) return false;
+    const contents = this.mainWindow.webContents;
+    return Boolean(contents && !contents.isDestroyed?.());
+  }
+
+  sendToHost(channel, payload) {
+    if (!this.canSendToHost()) return false;
+    this.mainWindow.webContents.send(channel, payload);
+    return true;
+  }
+
   async createView(site, account, proxyConfig = site.proxy, initialUrl = site.url) {
     const key = this.getKey(site.id, account.id);
 
@@ -76,7 +88,7 @@ class ViewManager {
     view.webContents.on('page-title-updated', (e, title) => {
       const match = title.match(/\((\d+)\)/);
       if (match) {
-        this.mainWindow.webContents.send('badge:update', {
+        this.sendToHost('badge:update', {
           siteId: site.id,
           count: parseInt(match[1])
         });
@@ -110,9 +122,9 @@ class ViewManager {
     if (!key || key !== this.activeKey) return;
     const viewData = this.views.get(key);
     const contents = viewData?.view?.webContents;
-    if (!contents) return;
+    if (!contents || contents.isDestroyed?.()) return;
     const history = contents.navigationHistory;
-    this.mainWindow.webContents.send('webview:navigationState', {
+    this.sendToHost('webview:navigationState', {
       url: contents.getURL(),
       canGoBack: history?.canGoBack?.() || false,
       canGoForward: history?.canGoForward?.() || false,

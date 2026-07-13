@@ -39,6 +39,27 @@ async function main() {
     const result = {};
     let failed = false;
 
+    const readSiteNames = () => page.locator('.site-card-name').allTextContents();
+    const dragSiteAfter = async (fromIndex, targetIndex) => {
+      const handle = page.locator('.site-card-drag-handle').nth(fromIndex);
+      const target = page.locator('.site-card').nth(targetIndex);
+      const handleBox = await handle.boundingBox();
+      const targetBox = await target.boundingBox();
+      if (!handleBox || !targetBox) throw new Error('Site drag handle is not visible');
+
+      await page.mouse.move(
+        handleBox.x + handleBox.width / 2,
+        handleBox.y + handleBox.height / 2
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        targetBox.x + targetBox.width / 2,
+        targetBox.y + targetBox.height * 0.75,
+        { steps: 8 }
+      );
+      await page.mouse.up();
+    };
+
     if (selectedCase === 'all' || selectedCase === 'settings') {
       await page.locator('#btn-settings').click();
       await page.locator('#settings-overlay:not(.hidden)').waitFor();
@@ -72,6 +93,52 @@ async function main() {
       result.settingsLayout = settingsLayout;
       failed ||= !result.settingsScrollable || !result.settingsUsesAvailableHeight;
       await page.locator('#settings-close').click();
+    }
+
+    if (selectedCase === 'all' || selectedCase === 'site-order') {
+      await page.locator('button[aria-label="打开站点管理"]').click();
+      await page.locator('#site-manager-overlay:not(.hidden)').waitFor();
+      await page.locator('.site-card').nth(2).waitFor();
+
+      const initialOrder = await readSiteNames();
+      const expectedAfterFirstDrag = [
+        initialOrder[1],
+        initialOrder[2],
+        initialOrder[0],
+        ...initialOrder.slice(3)
+      ];
+      await dragSiteAfter(0, 2);
+      await page.waitForFunction(expected => (
+        Array.from(document.querySelectorAll('.site-card-name'), node => node.textContent)
+          .join('\n') === expected.join('\n')
+      ), expectedAfterFirstDrag);
+      result.siteOrderAfterFirstDrag = await readSiteNames();
+
+      const expectedAfterSecondDrag = [
+        initialOrder[2],
+        initialOrder[1],
+        initialOrder[0],
+        ...initialOrder.slice(3)
+      ];
+      await dragSiteAfter(0, 1);
+      await page.waitForFunction(previous => (
+        Array.from(document.querySelectorAll('.site-card-name'), node => node.textContent)
+          .join('\n') !== previous.join('\n')
+      ), expectedAfterFirstDrag, { timeout: 3000 });
+      result.siteOrderAfterSecondDrag = await readSiteNames();
+      result.siteSequentialDragOrderCorrect = (
+        result.siteOrderAfterSecondDrag.join('\n') === expectedAfterSecondDrag.join('\n')
+      );
+
+      await page.locator('#site-manager-close').click();
+      await page.locator('button[aria-label="打开站点管理"]').click();
+      await page.locator('#site-manager-overlay:not(.hidden)').waitFor();
+      result.siteOrderAfterReopen = await readSiteNames();
+      result.siteDragOrderPersisted = (
+        result.siteOrderAfterReopen.join('\n') === expectedAfterSecondDrag.join('\n')
+      );
+      failed ||= !result.siteSequentialDragOrderCorrect || !result.siteDragOrderPersisted;
+      await page.locator('#site-manager-close').click();
     }
 
     if (selectedCase === 'all' || selectedCase === 'site-actions') {

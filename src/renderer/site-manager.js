@@ -43,6 +43,7 @@ class SiteManager {
     this.sidebar = sidebar;
     this.isOpen = false;
     this.overlayToken = Symbol('site-manager');
+    this.dragController = null;
     this.init();
   }
 
@@ -204,10 +205,31 @@ class SiteManager {
   }
 
   setupDragAndDrop(container) {
+    this.dragController?.abort();
+    const controller = new AbortController();
+    this.dragController = controller;
+    const { signal } = controller;
     let draggedSiteId = null;
     let draggedElement = null;
-    let startY = 0;
     let placeholder = null;
+    let originalSiteIds = [];
+
+    const resetDragState = () => {
+      if (draggedElement) {
+        draggedElement.classList.remove('dragging');
+        draggedElement.style.position = '';
+        draggedElement.style.zIndex = '';
+        draggedElement.style.width = '';
+        draggedElement.style.pointerEvents = '';
+        draggedElement.style.top = '';
+        draggedElement.style.left = '';
+      }
+      placeholder?.remove();
+      draggedSiteId = null;
+      draggedElement = null;
+      placeholder = null;
+      originalSiteIds = [];
+    };
 
     // Mouse down on drag handle to start drag
     container.addEventListener('mousedown', (e) => {
@@ -220,7 +242,10 @@ class SiteManager {
 
       draggedSiteId = handle.dataset.siteId;
       draggedElement = card;
-      startY = e.clientY;
+      originalSiteIds = Array.from(
+        container.querySelectorAll('.site-card'),
+        element => element.dataset.siteId
+      );
 
       // Create placeholder
       placeholder = document.createElement('div');
@@ -236,7 +261,7 @@ class SiteManager {
       card.style.pointerEvents = 'none';
       card.style.top = (e.clientY - card.offsetHeight / 2) + 'px';
       card.style.left = card.getBoundingClientRect().left + 'px';
-    });
+    }, { signal });
 
     // Mouse move to update position and find drop target
     document.addEventListener('mousemove', (e) => {
@@ -272,102 +297,62 @@ class SiteManager {
           closestCard.parentNode.insertBefore(placeholder, closestCard.nextSibling);
         }
       }
-    });
+    }, { signal });
 
     // Mouse up to complete the drop
-    document.addEventListener('mouseup', async (e) => {
+    document.addEventListener('mouseup', async () => {
       if (!draggedElement || !placeholder) return;
 
-      // Find the target index based on placeholder position
-      const allCards = Array.from(container.querySelectorAll('.site-card'));
-      const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
-      const draggedIndex = allCards.indexOf(draggedElement);
+      const orderedSiteIds = Array.from(container.children).flatMap(element => {
+        if (element === placeholder) return [draggedSiteId];
+        if (element === draggedElement) return [];
+        return element.classList.contains('site-card') ? [element.dataset.siteId] : [];
+      });
+      const orderChanged = orderedSiteIds.join('\n') !== originalSiteIds.join('\n');
+      resetDragState();
+      if (!orderChanged) return;
 
-      // Reset styles
-      draggedElement.classList.remove('dragging');
-      draggedElement.style.position = '';
-      draggedElement.style.zIndex = '';
-      draggedElement.style.width = '';
-      draggedElement.style.pointerEvents = '';
-      draggedElement.style.top = '';
-      draggedElement.style.left = '';
-
-      // Remove placeholder
-      if (placeholder.parentNode) {
-        placeholder.parentNode.removeChild(placeholder);
+      try {
+        await this.updateSiteOrder(orderedSiteIds);
+      } catch (err) {
+        alert('排序保存失败: ' + err.message);
+        await this.renderSiteList();
       }
-
-      // Calculate new order
-      if (placeholderIndex !== -1 && draggedIndex !== -1 && placeholderIndex !== draggedIndex) {
-        const sites = await window.api.getSites();
-        const draggedSiteIndex = sites.findIndex(s => s.id === draggedSiteId);
-
-        if (draggedSiteIndex !== -1) {
-          // Remove dragged site from array
-          const [draggedSite] = sites.splice(draggedSiteIndex, 1);
-
-          // Calculate target index (accounting for the removed item)
-          let targetIndex = placeholderIndex;
-          if (placeholderIndex > draggedSiteIndex) {
-            targetIndex = Math.min(placeholderIndex - 1, sites.length);
-          }
-          targetIndex = Math.max(0, Math.min(targetIndex, sites.length));
-
-          // Insert at new position
-          sites.splice(targetIndex, 0, draggedSite);
-
-          // Update order
-          for (let i = 0; i < sites.length; i++) {
-            await window.api.updateSite(sites[i].id, { order: i });
-          }
-
-          // Re-render
-          await this.renderSiteList();
-          if (this.sidebar) {
-            await this.sidebar.loadSites();
-            this.sidebar.render();
-          }
-        }
-      }
-
-      // Reset state
-      draggedSiteId = null;
-      draggedElement = null;
-      placeholder = null;
-    });
+    }, { signal });
 
     // Keyboard support for drag handles
     container.querySelectorAll('.site-card-drag-handle').forEach(handle => {
       handle.addEventListener('keydown', async (e) => {
         const siteId = handle.dataset.siteId;
-        const sites = await window.api.getSites();
-        const currentIndex = sites.findIndex(s => s.id === siteId);
+        const siteIds = Array.from(
+          container.querySelectorAll('.site-card'),
+          card => card.dataset.siteId
+        );
+        const currentIndex = siteIds.indexOf(siteId);
 
         if (e.key === 'ArrowUp' && currentIndex > 0) {
           e.preventDefault();
-          [sites[currentIndex - 1], sites[currentIndex]] = [sites[currentIndex], sites[currentIndex - 1]];
-          await this.updateSiteOrder(sites);
+          [siteIds[currentIndex - 1], siteIds[currentIndex]] = [siteIds[currentIndex], siteIds[currentIndex - 1]];
+          await this.updateSiteOrder(siteIds);
           setTimeout(() => {
             const handles = container.querySelectorAll('.site-card-drag-handle');
             if (handles[currentIndex - 1]) handles[currentIndex - 1].focus();
           }, 100);
-        } else if (e.key === 'ArrowDown' && currentIndex < sites.length - 1) {
+        } else if (e.key === 'ArrowDown' && currentIndex < siteIds.length - 1) {
           e.preventDefault();
-          [sites[currentIndex], sites[currentIndex + 1]] = [sites[currentIndex + 1], sites[currentIndex]];
-          await this.updateSiteOrder(sites);
+          [siteIds[currentIndex], siteIds[currentIndex + 1]] = [siteIds[currentIndex + 1], siteIds[currentIndex]];
+          await this.updateSiteOrder(siteIds);
           setTimeout(() => {
             const handles = container.querySelectorAll('.site-card-drag-handle');
             if (handles[currentIndex + 1]) handles[currentIndex + 1].focus();
           }, 100);
         }
-      });
+      }, { signal });
     });
   }
 
-  async updateSiteOrder(sites) {
-    for (let i = 0; i < sites.length; i++) {
-      await window.api.updateSite(sites[i].id, { order: i });
-    }
+  async updateSiteOrder(siteIds) {
+    await window.api.reorderSites(siteIds);
     await this.renderSiteList();
     if (this.sidebar) {
       await this.sidebar.loadSites();

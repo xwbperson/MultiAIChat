@@ -189,7 +189,7 @@ function createConfigRepository(store, options = {}) {
       throw new Error('Site update must be an object');
     }
     const allowedFields = new Set([
-      'name', 'url', 'color', 'icon', 'faviconUrl', 'proxy', 'shortcut', 'order'
+      'name', 'url', 'color', 'icon', 'faviconUrl', 'proxy', 'shortcut'
     ]);
     for (const key of Object.keys(patch || {})) {
       if (!allowedFields.has(key)) throw new Error(`Unsupported site field: ${key}`);
@@ -201,14 +201,30 @@ function createConfigRepository(store, options = {}) {
 
     const existing = sites[index];
     const metadata = normalizeSiteMetadata({ ...existing, ...patch }, existing);
-    let order = existing.order;
-    if (patch.order !== undefined) {
-      order = Number(patch.order);
-      if (!Number.isInteger(order) || order < 0) throw new Error('Site order must be a non-negative integer');
-    }
-    sites[index] = { ...existing, ...metadata, order };
+    sites[index] = { ...existing, ...metadata };
     store.set('sites', sites);
     return sites[index];
+  }
+
+  function reorderSites(siteIds) {
+    if (!Array.isArray(siteIds)) throw new Error('Site order must be an array');
+
+    const sites = getSites();
+    const sitesById = new Map(sites.map(site => [site.id, site]));
+    const uniqueIds = new Set(siteIds);
+    if (siteIds.length !== sites.length || uniqueIds.size !== sites.length) {
+      throw new Error('Site order must contain every site exactly once');
+    }
+
+    const reordered = siteIds.map(siteId => sitesById.get(siteId));
+    if (reordered.some(site => !site)) {
+      throw new Error('Site order contains an unknown site');
+    }
+    reordered.forEach((site, order) => {
+      site.order = order;
+    });
+    store.set('sites', reordered);
+    return reordered;
   }
 
   function deleteSite(siteId) {
@@ -374,6 +390,7 @@ function createConfigRepository(store, options = {}) {
     getSites,
     addSite,
     updateSite,
+    reorderSites,
     deleteSite,
     addAccount,
     renameAccount,

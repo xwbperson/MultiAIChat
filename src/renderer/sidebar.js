@@ -163,7 +163,7 @@ class Sidebar {
       const draggedId = e.dataTransfer.getData('text/plain');
       if (draggedId === site.id) return;
 
-      const sites = await window.api.getSites();
+      const sites = [...this.sites];
       const draggedIndex = sites.findIndex(s => s.id === draggedId);
       const targetIndex = sites.findIndex(s => s.id === site.id);
       if (draggedIndex === -1 || targetIndex === -1) return;
@@ -171,9 +171,7 @@ class Sidebar {
       const [dragged] = sites.splice(draggedIndex, 1);
       sites.splice(targetIndex, 0, dragged);
 
-      for (let i = 0; i < sites.length; i++) {
-        await window.api.updateSite(sites[i].id, { order: i });
-      }
+      await window.api.reorderSites(sites.map(candidate => candidate.id));
 
       await this.loadSites();
       this.render();

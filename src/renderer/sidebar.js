@@ -77,9 +77,26 @@ class Sidebar {
       iconWrapper.style.borderColor = 'var(--accent)';
     }
 
-    const icon = document.createElement('span');
-    icon.className = 'site-icon';
-    icon.textContent = site.icon;
+    // Check if site has local favicon
+    let icon;
+    if (site.faviconUrl) {
+      icon = document.createElement('img');
+      icon.className = 'site-icon site-favicon';
+      icon.src = site.faviconUrl;
+      icon.alt = site.name;
+      icon.onerror = () => {
+        // Fallback to emoji on error
+        icon.style.display = 'none';
+        const emojiIcon = document.createElement('span');
+        emojiIcon.className = 'site-icon';
+        emojiIcon.textContent = site.icon;
+        iconWrapper.appendChild(emojiIcon);
+      };
+    } else {
+      icon = document.createElement('span');
+      icon.className = 'site-icon';
+      icon.textContent = site.icon;
+    }
 
     const statusDot = document.createElement('span');
     statusDot.className = 'status-dot';

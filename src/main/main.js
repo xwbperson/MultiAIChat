@@ -7,6 +7,7 @@ const HibernationManager = require('./hibernation-manager');
 const TrayManager = require('./tray-manager');
 const { setupContextMenu } = require('./context-menu');
 const { clearSessionData } = require('./session-manager');
+const faviconManager = require('./favicon-manager');
 
 let mainWindow;
 let viewManager;
@@ -328,6 +329,38 @@ function createWindow() {
       }
     }
     return { success: true };
+  });
+
+  // Favicon IPC handlers
+  ipcMain.handle('favicon:fetch', async (e, url, siteId) => {
+    try {
+      const localUrl = await faviconManager.fetchAndSave(url, siteId);
+      return { success: true, localUrl };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('favicon:getLocal', (e, siteId) => {
+    return faviconManager.getLocalUrl(siteId);
+  });
+
+  ipcMain.handle('favicon:hasLocal', (e, siteId) => {
+    return faviconManager.hasLocalFavicon(siteId);
+  });
+
+  ipcMain.handle('favicon:deleteLocal', (e, siteId) => {
+    faviconManager.deleteLocal(siteId);
+    return { success: true };
+  });
+
+  ipcMain.handle('favicon:detectFromDomain', async (e, domain) => {
+    try {
+      const faviconUrl = await faviconManager.fetchFaviconFromDomain(domain);
+      return { success: true, url: faviconUrl };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   // Context menu for main window

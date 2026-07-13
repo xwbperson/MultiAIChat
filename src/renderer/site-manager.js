@@ -473,6 +473,10 @@ class SiteManager {
     const site = sites.find(s => s.id === siteId);
     if (!site) return;
 
+    // Get local favicon if exists
+    const localFavicon = await window.api.getLocalFavicon(siteId);
+    const hasFavicon = !!localFavicon || !!site.faviconUrl;
+
     const dialog = document.createElement('div');
     dialog.className = 'edit-dialog-overlay';
     dialog.innerHTML = `
@@ -487,8 +491,16 @@ class SiteManager {
           <input type="text" id="edit-url" value="${site.url}">
         </div>
         <div class="edit-field">
-          <label>图标 (emoji)</label>
-          <input type="text" id="edit-icon" value="${site.icon}">
+          <label>图标 (emoji 或 URL)</label>
+          <div class="icon-input-row">
+            <input type="text" id="edit-icon" value="${site.icon}" placeholder="🌐 或 https://...">
+            <button id="edit-detect-favicon" class="settings-action-btn small" title="自动检测网站图标">🔍</button>
+          </div>
+          <div class="favicon-preview" id="favicon-preview">
+            ${site.faviconUrl ? `<img src="${site.faviconUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">` : ''}
+            ${localFavicon ? `<img src="${localFavicon}" style="max-width:32px;max-height:32px;">` : ''}
+            <span class="favicon-status">${hasFavicon ? '已设置' : '未设置'}</span>
+          </div>
         </div>
         <div class="edit-field">
           <label>颜色</label>
@@ -513,6 +525,31 @@ class SiteManager {
 
     document.body.appendChild(dialog);
 
+    // Detect favicon button
+    dialog.querySelector('#edit-detect-favicon').addEventListener('click', async () => {
+      const url = dialog.querySelector('#edit-url').value;
+      if (!url) {
+        alert('请先输入站点 URL');
+        return;
+      }
+
+      try {
+        const domain = new URL(url).hostname;
+        const result = await window.api.detectFaviconFromDomain(domain);
+        if (result.success) {
+          dialog.querySelector('#edit-icon').value = result.url;
+          dialog.querySelector('#favicon-preview').innerHTML = `
+            <img src="${result.url}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+            <span class="favicon-status">已检测到</span>
+          `;
+        } else {
+          alert('未检测到网站图标');
+        }
+      } catch (err) {
+        alert('URL 格式错误');
+      }
+    });
+
     dialog.querySelector('#edit-proxy-mode').addEventListener('change', (e) => {
       dialog.querySelector('#edit-proxy').style.display =
         e.target.value === 'custom' ? 'block' : 'none';
@@ -531,10 +568,26 @@ class SiteManager {
       else if (proxyMode === 'system') proxy = 'system';
       else if (proxyMode === 'custom') proxy = dialog.querySelector('#edit-proxy').value.trim();
 
+      const iconValue = dialog.querySelector('#edit-icon').value.trim();
+      const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
+
+      // If icon is a URL, fetch and save locally
+      if (isUrl) {
+        const result = await window.api.fetchFavicon(iconValue, siteId);
+        if (result.success) {
+          await window.api.updateSite(siteId, {
+            faviconUrl: iconValue,
+            icon: '🌐' // Default emoji while favicon loads
+          });
+        } else {
+          console.error('Failed to fetch favicon:', result.error);
+        }
+      }
+
       await window.api.updateSite(siteId, {
         name: dialog.querySelector('#edit-name').value,
         url: dialog.querySelector('#edit-url').value,
-        icon: dialog.querySelector('#edit-icon').value,
+        icon: isUrl ? '🌐' : iconValue,
         color: dialog.querySelector('#edit-color').value,
         proxy
       });

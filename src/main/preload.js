@@ -45,6 +45,13 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
 
+  // Favicon
+  fetchFavicon: (url, siteId) => ipcRenderer.invoke('favicon:fetch', url, siteId),
+  getLocalFavicon: (siteId) => ipcRenderer.invoke('favicon:getLocal', siteId),
+  hasLocalFavicon: (siteId) => ipcRenderer.invoke('favicon:hasLocal', siteId),
+  deleteLocalFavicon: (siteId) => ipcRenderer.invoke('favicon:deleteLocal', siteId),
+  detectFaviconFromDomain: (domain) => ipcRenderer.invoke('favicon:detectFromDomain', domain),
+
   // Events from main
   onMaximizeChanged: (callback) => ipcRenderer.on('window:maximized', (e, isMaximized) => callback(isMaximized)),
   onSiteUpdate: (callback) => ipcRenderer.on('site:updated', (e, data) => callback(data)),

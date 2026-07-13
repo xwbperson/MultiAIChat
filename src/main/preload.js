@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Site management
   getSites: () => ipcRenderer.invoke('site:getAll'),
+  getActiveState: () => ipcRenderer.invoke('site:getActiveState'),
   addSite: (site) => ipcRenderer.invoke('site:add', site),
   updateSite: (id, data) => ipcRenderer.invoke('site:update', id, data),
   deleteSite: (id) => ipcRenderer.invoke('site:delete', id),

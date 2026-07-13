@@ -1,3 +1,45 @@
+class StatusBar {
+  constructor() {
+    this.container = document.getElementById('statusbar');
+    this.updateInterval = null;
+    this.init();
+  }
+
+  init() {
+    this.update();
+    this.updateInterval = setInterval(() => this.update(), 5000);
+  }
+
+  async update() {
+    try {
+      const sites = await window.api.getSites();
+      const active = await window.api.getActiveState?.() || {};
+      const hibernateStatus = await window.api.getHibernateStatus?.() || {};
+
+      const currentSite = sites.find(s => s.id === active.siteId);
+      const currentAccount = currentSite?.accounts.find(a => a.id === active.accountId);
+
+      const parts = [];
+
+      if (currentSite) {
+        parts.push(`${currentSite.icon} ${currentSite.name}${currentAccount ? ' - ' + currentAccount.label : ''}`);
+      }
+
+      if (currentSite?.proxy) {
+        parts.push(`代理: ${currentSite.proxy === 'direct' ? '直连' : currentSite.proxy}`);
+      }
+
+      if (hibernateStatus.total !== undefined) {
+        parts.push(`活跃: ${hibernateStatus.active} | 休眠: ${hibernateStatus.hibernated}`);
+      }
+
+      this.container.innerHTML = parts.map(p => `<span>${p}</span>`).join('<span class="status-separator">|</span>');
+    } catch (err) {
+      console.error('StatusBar update failed:', err);
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const btnMinimize = document.getElementById('btn-minimize');
   const btnMaximize = document.getElementById('btn-maximize');
@@ -21,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toolbar = new Toolbar();
   const settingsPanel = new SettingsPanel();
   const siteManager = new SiteManager(sidebar);
+  const statusBar = new StatusBar();
 
   // Handle tray menu commands
   window.api.onOpenSiteManager?.(() => siteManager.open());

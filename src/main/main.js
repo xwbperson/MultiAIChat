@@ -100,6 +100,8 @@ function createWindow() {
   ipcMain.handle('site:delete', (e, id) => configStore.deleteSite(id));
   ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
 
+  ipcMain.handle('site:getActiveState', () => configStore.getActiveState());
+
   ipcMain.handle('settings:get', () => configStore.getSettings());
   ipcMain.handle('settings:update', (e, settings) => {
     configStore.updateSettings(settings);

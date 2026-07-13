@@ -420,6 +420,15 @@ html, body {
   color: var(--text-secondary);
 }
 
+#statusbar span {
+  font-size: 11px;
+}
+
+.status-separator {
+  color: var(--border);
+  margin: 0 8px;
+}
+
 /* Settings panel */
 .settings-overlay {
   position: fixed;

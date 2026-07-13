@@ -645,6 +645,30 @@ html, body {
   background: var(--bg-secondary);
 }
 
+.site-card-drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  font-size: 16px;
+  user-select: none;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.site-card-drag-handle:hover {
+  opacity: 1;
+}
+
+.site-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.site-card.drag-over {
+  border: 2px solid var(--accent);
+  margin-top: 4px;
+}
+
 .site-card-icon {
   font-size: 20px;
 }

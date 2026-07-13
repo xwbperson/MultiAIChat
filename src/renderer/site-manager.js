@@ -58,9 +58,10 @@ class SiteManager {
     const sites = await window.api.getSites();
     const container = document.getElementById('site-list-container');
 
-    container.innerHTML = sites.map(site => `
-      <div class="site-card" data-site-id="${site.id}">
+    container.innerHTML = sites.map((site, index) => `
+      <div class="site-card" data-site-id="${site.id}" data-index="${index}" draggable="true">
         <div class="site-card-header">
+          <span class="site-card-drag-handle" title="拖拽排序">⠿</span>
           <span class="site-card-icon">${site.icon}</span>
           <span class="site-card-name">${site.name}</span>
           <div class="site-card-actions">
@@ -93,6 +94,9 @@ class SiteManager {
       </div>
     `).join('');
 
+    // Add drag and drop event listeners
+    this.setupDragAndDrop(container);
+
     container.querySelectorAll('.site-edit-btn').forEach(btn => {
       btn.addEventListener('click', () => this.showEditSite(btn.dataset.siteId));
     });
@@ -109,6 +113,72 @@ class SiteManager {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.removeAccount(btn.dataset.siteId, btn.dataset.accountId);
+      });
+    });
+  }
+
+  setupDragAndDrop(container) {
+    let draggedCard = null;
+    let draggedSiteId = null;
+
+    container.querySelectorAll('.site-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedCard = card;
+        draggedSiteId = card.dataset.siteId;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.siteId);
+      });
+
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        draggedCard = null;
+        draggedSiteId = null;
+        // Remove all drag-over classes
+        container.querySelectorAll('.site-card').forEach(c => c.classList.remove('drag-over'));
+      });
+
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (card !== draggedCard) {
+          card.classList.add('drag-over');
+        }
+      });
+
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+
+      card.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+
+        if (!draggedSiteId || card.dataset.siteId === draggedSiteId) return;
+
+        const sites = await window.api.getSites();
+        const draggedIndex = sites.findIndex(s => s.id === draggedSiteId);
+        const targetIndex = parseInt(card.dataset.index);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        // Reorder sites
+        const [dragged] = sites.splice(draggedIndex, 1);
+        sites.splice(targetIndex, 0, dragged);
+
+        // Update order in config
+        for (let i = 0; i < sites.length; i++) {
+          await window.api.updateSite(sites[i].id, { order: i });
+        }
+
+        // Re-render the list
+        await this.renderSiteList();
+
+        // Also update sidebar
+        if (this.sidebar) {
+          await this.sidebar.loadSites();
+          this.sidebar.render();
+        }
       });
     });
   }

@@ -81,16 +81,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', async (e) => {
-    // Ctrl+1-9: Switch to site by custom shortcut
-    if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+    // Build current key combination string
+    function getShortcutString(e) {
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Meta');
+
+      let keyName = e.key;
+      if (keyName === ' ') keyName = 'Space';
+      else if (keyName === 'Escape') keyName = 'Esc';
+      else if (keyName === 'Delete') keyName = 'Del';
+      else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+      parts.push(keyName);
+      return parts.join('+');
+    }
+
+    // Check for site shortcut match (any custom shortcut)
+    const currentShortcut = getShortcutString(e);
+    const sites = await window.api.getSites();
+    const siteByShortcut = sites.find(s => s.shortcut === currentShortcut);
+    if (siteByShortcut) {
       e.preventDefault();
-      const shortcut = `Ctrl+${e.key}`;
-      const sites = await window.api.getSites();
-      const site = sites.find(s => s.shortcut === shortcut);
-      if (site) {
-        const defaultAccount = site.accounts.find(a => a.isDefault) || site.accounts[0];
-        sidebar.selectSite(site.id, defaultAccount.id);
-      }
+      const defaultAccount = siteByShortcut.accounts.find(a => a.isDefault) || siteByShortcut.accounts[0];
+      sidebar.selectSite(siteByShortcut.id, defaultAccount.id);
       return;
     }
 

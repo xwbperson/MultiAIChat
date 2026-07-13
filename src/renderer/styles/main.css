@@ -780,6 +780,75 @@ html, body {
   color: var(--danger);
 }
 
+/* Shortcut capture area */
+.shortcut-capture-area {
+  width: 100%;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.shortcut-capture-area:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-primary);
+}
+
+.shortcut-capture-area.has-capture {
+  border-style: solid;
+  border-color: var(--success);
+}
+
+.capture-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.captured-key {
+  background: var(--accent);
+  color: var(--bg-primary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.current-shortcut {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--bg-surface);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-primary);
+}
+
+.shortcut-conflict {
+  color: var(--warning);
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(249, 226, 175, 0.1);
+  border-radius: 4px;
+}
+
+.shortcut-actions {
+  margin-top: 8px;
+}
+
+.settings-action-btn.small {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
 .account-list-inline {
   display: flex;
   flex-wrap: wrap;

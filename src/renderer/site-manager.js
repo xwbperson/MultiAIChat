@@ -568,32 +568,97 @@ class SiteManager {
       .filter(s => s.shortcut && s.id !== siteId)
       .map(s => s.shortcut);
 
-    // Create shortcut selection dialog
+    // Create shortcut capture dialog
     const dialog = document.createElement('div');
     dialog.className = 'edit-dialog-overlay';
     dialog.innerHTML = `
       <div class="edit-dialog">
         <h3>设置快捷键 - ${site.name}</h3>
         <div class="edit-field">
-          <label>选择快捷键</label>
-          <select id="shortcut-select">
-            <option value="">不使用快捷键</option>
-            ${[1,2,3,4,5,6,7,8,9].map(n => {
-              const key = `Ctrl+${n}`;
-              const isUsed = usedShortcuts.includes(key);
-              const isCurrent = currentShortcut === key;
-              return `<option value="${key}" ${isCurrent ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${key} ${isUsed ? '(已使用)' : ''}</option>`;
-            }).join('')}
-          </select>
+          <label>当前快捷键</label>
+          <span class="current-shortcut">${currentShortcut || '未设置'}</span>
+        </div>
+        <div class="edit-field">
+          <label>按下新的快捷键组合</label>
+          <div class="shortcut-capture-area" id="shortcut-capture" tabindex="0">
+            <span class="capture-hint">点击此处后按下快捷键...</span>
+            <span class="captured-key" style="display:none"></span>
+          </div>
+          <div class="shortcut-actions">
+            <button id="shortcut-clear" class="settings-action-btn small">清除快捷键</button>
+          </div>
+        </div>
+        <div id="shortcut-conflict" class="shortcut-conflict" style="display:none">
+          ⚠️ 此快捷键已被其他站点使用
         </div>
         <div class="edit-actions">
           <button id="shortcut-cancel" class="settings-action-btn">取消</button>
-          <button id="shortcut-save" class="settings-action-btn primary">保存</button>
+          <button id="shortcut-save" class="settings-action-btn primary" disabled>保存</button>
         </div>
       </div>
     `;
 
     document.body.appendChild(dialog);
+
+    let capturedShortcut = null;
+    const captureArea = dialog.querySelector('#shortcut-capture');
+    const capturedKey = dialog.querySelector('.captured-key');
+    const captureHint = dialog.querySelector('.capture-hint');
+    const saveBtn = dialog.querySelector('#shortcut-save');
+    const conflictMsg = dialog.querySelector('#shortcut-conflict');
+
+    // Focus the capture area
+    captureArea.focus();
+
+    // Keyboard capture handler
+    captureArea.addEventListener('keydown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignore standalone modifier keys
+      if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+        return;
+      }
+
+      // Build shortcut string
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Meta');
+
+      // Get the key name
+      let keyName = e.key;
+      if (keyName === ' ') keyName = 'Space';
+      else if (keyName === 'Escape') keyName = 'Esc';
+      else if (keyName === 'Delete') keyName = 'Del';
+      else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+      parts.push(keyName);
+      capturedShortcut = parts.join('+');
+
+      // Check for conflict
+      const hasConflict = usedShortcuts.includes(capturedShortcut);
+      conflictMsg.style.display = hasConflict ? 'block' : 'none';
+      saveBtn.disabled = hasConflict;
+
+      // Update UI
+      captureHint.style.display = 'none';
+      capturedKey.style.display = 'inline';
+      capturedKey.textContent = capturedShortcut;
+      captureArea.classList.add('has-capture');
+    });
+
+    // Clear shortcut button
+    dialog.querySelector('#shortcut-clear').addEventListener('click', () => {
+      capturedShortcut = '';
+      captureHint.style.display = 'inline';
+      capturedKey.style.display = 'none';
+      captureArea.classList.remove('has-capture');
+      conflictMsg.style.display = 'none';
+      saveBtn.disabled = false;
+      captureArea.focus();
+    });
 
     // Cancel
     dialog.querySelector('#shortcut-cancel').addEventListener('click', () => dialog.remove());
@@ -602,10 +667,9 @@ class SiteManager {
     });
 
     // Save
-    dialog.querySelector('#shortcut-save').addEventListener('click', async () => {
-      const shortcut = dialog.querySelector('#shortcut-select').value;
+    saveBtn.addEventListener('click', async () => {
       try {
-        await window.api.updateSite(siteId, { shortcut: shortcut || null });
+        await window.api.updateSite(siteId, { shortcut: capturedShortcut || null });
         dialog.remove();
         await this.renderSiteList();
       } catch (err) {

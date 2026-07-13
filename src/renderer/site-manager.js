@@ -61,9 +61,9 @@ class SiteManager {
     const container = document.getElementById('site-list-container');
 
     container.innerHTML = sites.map((site, index) => `
-      <div class="site-card" data-site-id="${site.id}" data-index="${index}" draggable="true">
+      <div class="site-card" data-site-id="${site.id}" data-index="${index}">
         <div class="site-card-header">
-          <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${site.name}">⠿</span>
+          <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${site.name}" draggable="true" data-site-id="${site.id}">⠿</span>
           <span class="site-card-icon" aria-hidden="true">${site.icon}</span>
           <span class="site-card-name">${site.name}</span>
           <div class="site-card-actions">
@@ -150,55 +150,69 @@ class SiteManager {
   }
 
   setupDragAndDrop(container) {
-    let draggedCard = null;
     let draggedSiteId = null;
 
-    container.querySelectorAll('.site-card').forEach(card => {
-      // Mouse drag support
-      card.addEventListener('dragstart', (e) => {
-        draggedCard = card;
-        draggedSiteId = card.dataset.siteId;
+    // Setup drag on each drag handle
+    container.querySelectorAll('.site-card-drag-handle').forEach(handle => {
+      const card = handle.closest('.site-card');
+      const siteId = handle.dataset.siteId;
+
+      // Drag start on handle
+      handle.addEventListener('dragstart', (e) => {
+        draggedSiteId = siteId;
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', card.dataset.siteId);
+        e.dataTransfer.setData('text/plain', siteId);
+        // Set a timeout to allow the drag image to be captured
+        setTimeout(() => card.classList.add('dragging'), 0);
       });
 
-      card.addEventListener('dragend', () => {
+      // Drag end on handle
+      handle.addEventListener('dragend', () => {
         card.classList.remove('dragging');
-        draggedCard = null;
         draggedSiteId = null;
+        // Remove all drag-over indicators
         container.querySelectorAll('.site-card').forEach(c => c.classList.remove('drag-over'));
       });
+    });
+
+    // Setup drop targets on each card
+    container.querySelectorAll('.site-card').forEach(card => {
+      const siteId = card.dataset.siteId;
 
       card.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (card !== draggedCard) {
+        // Only show indicator if dragging over a different card
+        if (draggedSiteId && draggedSiteId !== siteId) {
           card.classList.add('drag-over');
         }
       });
 
-      card.addEventListener('dragleave', () => {
-        card.classList.remove('drag-over');
+      card.addEventListener('dragleave', (e) => {
+        // Only remove if leaving the card itself, not a child
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove('drag-over');
+        }
       });
 
       card.addEventListener('drop', async (e) => {
         e.preventDefault();
         card.classList.remove('drag-over');
 
-        if (!draggedSiteId || card.dataset.siteId === draggedSiteId) return;
+        if (!draggedSiteId || draggedSiteId === siteId) return;
 
         const sites = await window.api.getSites();
         const draggedIndex = sites.findIndex(s => s.id === draggedSiteId);
-        const targetIndex = sites.findIndex(s => s.id === card.dataset.siteId);
+        const targetIndex = sites.findIndex(s => s.id === siteId);
 
         if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Reorder the array
+        // Reorder
         const [dragged] = sites.splice(draggedIndex, 1);
         sites.splice(targetIndex, 0, dragged);
 
-        // Update order in config
+        // Update order
         for (let i = 0; i < sites.length; i++) {
           await window.api.updateSite(sites[i].id, { order: i });
         }
@@ -210,38 +224,33 @@ class SiteManager {
           this.sidebar.render();
         }
       });
+    });
 
-      // Keyboard support for drag handle
-      const dragHandle = card.querySelector('.site-card-drag-handle');
-      if (dragHandle) {
-        dragHandle.addEventListener('keydown', async (e) => {
-          const siteId = card.dataset.siteId;
-          const sites = await window.api.getSites();
-          const currentIndex = sites.findIndex(s => s.id === siteId);
+    // Keyboard support
+    container.querySelectorAll('.site-card-drag-handle').forEach(handle => {
+      handle.addEventListener('keydown', async (e) => {
+        const siteId = handle.dataset.siteId;
+        const sites = await window.api.getSites();
+        const currentIndex = sites.findIndex(s => s.id === siteId);
 
-          if (e.key === 'ArrowUp' && currentIndex > 0) {
-            e.preventDefault();
-            // Swap with previous
-            [sites[currentIndex - 1], sites[currentIndex]] = [sites[currentIndex], sites[currentIndex - 1]];
-            await this.updateSiteOrder(sites);
-            // Focus the moved item
-            setTimeout(() => {
-              const handles = container.querySelectorAll('.site-card-drag-handle');
-              if (handles[currentIndex - 1]) handles[currentIndex - 1].focus();
-            }, 50);
-          } else if (e.key === 'ArrowDown' && currentIndex < sites.length - 1) {
-            e.preventDefault();
-            // Swap with next
-            [sites[currentIndex], sites[currentIndex + 1]] = [sites[currentIndex + 1], sites[currentIndex]];
-            await this.updateSiteOrder(sites);
-            // Focus the moved item
-            setTimeout(() => {
-              const handles = container.querySelectorAll('.site-card-drag-handle');
-              if (handles[currentIndex + 1]) handles[currentIndex + 1].focus();
-            }, 50);
-          }
-        });
-      }
+        if (e.key === 'ArrowUp' && currentIndex > 0) {
+          e.preventDefault();
+          [sites[currentIndex - 1], sites[currentIndex]] = [sites[currentIndex], sites[currentIndex - 1]];
+          await this.updateSiteOrder(sites);
+          setTimeout(() => {
+            const handles = container.querySelectorAll('.site-card-drag-handle');
+            if (handles[currentIndex - 1]) handles[currentIndex - 1].focus();
+          }, 50);
+        } else if (e.key === 'ArrowDown' && currentIndex < sites.length - 1) {
+          e.preventDefault();
+          [sites[currentIndex], sites[currentIndex + 1]] = [sites[currentIndex + 1], sites[currentIndex]];
+          await this.updateSiteOrder(sites);
+          setTimeout(() => {
+            const handles = container.querySelectorAll('.site-card-drag-handle');
+            if (handles[currentIndex + 1]) handles[currentIndex + 1].focus();
+          }, 50);
+        }
+      });
     });
   }
 

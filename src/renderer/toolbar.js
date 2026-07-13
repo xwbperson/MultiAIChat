@@ -1,0 +1,94 @@
+class Toolbar {
+  constructor() {
+    this.container = document.getElementById('toolbar');
+    this.currentZoom = 100;
+    this.init();
+  }
+
+  init() {
+    this.render();
+    this.bindEvents();
+  }
+
+  render() {
+    this.container.innerHTML = `
+      <div class="toolbar-nav">
+        <button id="btn-back" class="toolbar-btn" title="后退 (Alt+←)">←</button>
+        <button id="btn-forward" class="toolbar-btn" title="前进 (Alt+→)">→</button>
+        <button id="btn-refresh" class="toolbar-btn" title="刷新 (F5)">↻</button>
+      </div>
+      <div class="toolbar-separator"></div>
+      <div class="toolbar-url" id="toolbar-url" title="点击复制">
+        <span id="url-text">AI Workspace</span>
+      </div>
+      <div class="toolbar-separator"></div>
+      <div class="toolbar-zoom">
+        <button id="btn-zoom-out" class="toolbar-btn" title="缩小 (Ctrl+-)">−</button>
+        <span id="zoom-level" class="zoom-level">100%</span>
+        <button id="btn-zoom-in" class="toolbar-btn" title="放大 (Ctrl++)">+</button>
+        <button id="btn-zoom-reset" class="toolbar-btn" title="重置 (Ctrl+0)">⟲</button>
+      </div>
+    `;
+  }
+
+  bindEvents() {
+    document.getElementById('btn-back').addEventListener('click', () => {
+      window.api.goBack?.();
+    });
+
+    document.getElementById('btn-forward').addEventListener('click', () => {
+      window.api.goForward?.();
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      window.api.refresh?.();
+    });
+
+    document.getElementById('toolbar-url').addEventListener('click', () => {
+      const url = document.getElementById('url-text').textContent;
+      if (url && url !== 'AI Workspace') {
+        navigator.clipboard.writeText(url);
+        this.showTooltip('已复制');
+      }
+    });
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => this.zoom(10));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => this.zoom(-10));
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => this.setZoom(100));
+  }
+
+  setUrl(url) {
+    const urlText = document.getElementById('url-text');
+    if (urlText) {
+      urlText.textContent = url || 'AI Workspace';
+    }
+  }
+
+  zoom(delta) {
+    this.currentZoom = Math.max(25, Math.min(500, this.currentZoom + delta));
+    this.setZoom(this.currentZoom);
+  }
+
+  setZoom(level) {
+    this.currentZoom = level;
+    const zoomEl = document.getElementById('zoom-level');
+    if (zoomEl) {
+      zoomEl.textContent = `${level}%`;
+    }
+    window.api.setZoom?.(level / 100);
+  }
+
+  showTooltip(text) {
+    const urlEl = document.getElementById('toolbar-url');
+    if (!urlEl) return;
+
+    const tooltip = document.createElement('span');
+    tooltip.className = 'toolbar-tooltip';
+    tooltip.textContent = text;
+    urlEl.appendChild(tooltip);
+
+    setTimeout(() => tooltip.remove(), 1500);
+  }
+}
+
+window.Toolbar = Toolbar;

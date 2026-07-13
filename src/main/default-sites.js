@@ -1,3 +1,6 @@
+// Use Google's favicon service for reliable access (works with proxy)
+const GOOGLE_FAVICON = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
 const DEFAULT_SITES = [
   {
     id: 'chatgpt',
@@ -5,7 +8,7 @@ const DEFAULT_SITES = [
     url: 'https://chatgpt.com',
     color: '#10a37f',
     icon: '🤖',
-    faviconUrl: 'https://cdn.oaistatic.com/assets/favicon-o.svg',
+    faviconUrl: GOOGLE_FAVICON('chatgpt.com'),
     proxy: '',
     order: 0,
     accounts: [
@@ -18,7 +21,7 @@ const DEFAULT_SITES = [
     url: 'https://claude.ai',
     color: '#d4a574',
     icon: '🧠',
-    faviconUrl: 'https://claude.ai/favicon.ico',
+    faviconUrl: GOOGLE_FAVICON('claude.ai'),
     proxy: '',
     order: 1,
     accounts: [
@@ -31,7 +34,7 @@ const DEFAULT_SITES = [
     url: 'https://chat.deepseek.com',
     color: '#4d6bfe',
     icon: '🔷',
-    faviconUrl: 'https://chat.deepseek.com/favicon.ico',
+    faviconUrl: GOOGLE_FAVICON('deepseek.com'),
     proxy: '',
     order: 2,
     accounts: [
@@ -44,7 +47,7 @@ const DEFAULT_SITES = [
     url: 'https://kimi.moonshot.cn',
     color: '#6236d9',
     icon: '🌙',
-    faviconUrl: 'https://kimi.moonshot.cn/favicon.ico',
+    faviconUrl: GOOGLE_FAVICON('kimi.moonshot.cn'),
     proxy: '',
     order: 3,
     accounts: [
@@ -57,7 +60,7 @@ const DEFAULT_SITES = [
     url: 'https://www.doubao.com',
     color: '#fe694a',
     icon: '🤖',
-    faviconUrl: 'https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/doubao/web/logo-icon.png',
+    faviconUrl: GOOGLE_FAVICON('doubao.com'),
     proxy: '',
     order: 4,
     accounts: [
@@ -70,7 +73,7 @@ const DEFAULT_SITES = [
     url: 'https://copilot.microsoft.com',
     color: '#7c3aed',
     icon: '🪟',
-    faviconUrl: 'https://copilot.microsoft.com/favicon.ico',
+    faviconUrl: GOOGLE_FAVICON('copilot.microsoft.com'),
     proxy: '',
     order: 5,
     accounts: [
@@ -83,7 +86,7 @@ const DEFAULT_SITES = [
     url: 'https://gemini.google.com',
     color: '#4285f4',
     icon: '💎',
-    faviconUrl: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_20240301_72x72.png',
+    faviconUrl: GOOGLE_FAVICON('gemini.google.com'),
     proxy: '',
     order: 6,
     accounts: [
@@ -96,7 +99,7 @@ const DEFAULT_SITES = [
     url: 'https://www.perplexity.ai',
     color: '#20b2aa',
     icon: '🔍',
-    faviconUrl: 'https://www.perplexity.ai/favicon.ico',
+    faviconUrl: GOOGLE_FAVICON('perplexity.ai'),
     proxy: '',
     order: 7,
     accounts: [

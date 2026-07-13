@@ -28,9 +28,10 @@ function migrateFaviconUrls() {
   let updated = false;
 
   for (const site of sites) {
-    if (!site.faviconUrl) {
-      const defaultSite = DEFAULT_SITES.find(d => d.id === site.id);
-      if (defaultSite && defaultSite.faviconUrl) {
+    const defaultSite = DEFAULT_SITES.find(d => d.id === site.id);
+    if (defaultSite) {
+      // Always update default sites with latest favicon URLs
+      if (defaultSite.faviconUrl && site.faviconUrl !== defaultSite.faviconUrl) {
         site.faviconUrl = defaultSite.faviconUrl;
         updated = true;
       }

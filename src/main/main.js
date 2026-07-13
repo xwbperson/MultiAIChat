@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const { getWindowState, saveWindowState } = require('./window-manager');
 const configStore = require('./config-store');
@@ -8,6 +8,21 @@ const HibernationManager = require('./hibernation-manager');
 let mainWindow;
 let viewManager;
 let hibernationManager;
+
+function registerShortcuts() {
+  const settings = configStore.getSettings();
+
+  if (settings.globalHotkey) {
+    globalShortcut.register(settings.globalHotkey, () => {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  }
+}
 
 function createWindow() {
   const state = getWindowState();
@@ -76,7 +91,11 @@ function createWindow() {
   ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
 
   ipcMain.handle('settings:get', () => configStore.getSettings());
-  ipcMain.handle('settings:update', (e, settings) => configStore.updateSettings(settings));
+  ipcMain.handle('settings:update', (e, settings) => {
+    configStore.updateSettings(settings);
+    globalShortcut.unregisterAll();
+    registerShortcuts();
+  });
 
   ipcMain.handle('config:export', () => configStore.exportConfig());
   ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
@@ -138,8 +157,15 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  registerShortcuts();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });

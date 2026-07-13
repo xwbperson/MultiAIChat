@@ -6,8 +6,9 @@ const ViewManager = require('./view-manager');
 const HibernationManager = require('./hibernation-manager');
 const TrayManager = require('./tray-manager');
 const { setupContextMenu } = require('./context-menu');
-const { clearSessionData } = require('./session-manager');
+const { clearSessionData, resolveProxy, setProxy } = require('./session-manager');
 const faviconManager = require('./favicon-manager');
+const { getKeyboardCommand } = require('./keyboard-shortcuts');
 
 let mainWindow;
 let viewManager;
@@ -25,15 +26,113 @@ function registerShortcuts() {
   const settings = configStore.getSettings();
 
   if (settings.globalHotkey) {
-    globalShortcut.register(settings.globalHotkey, () => {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    });
+    try {
+      const registered = globalShortcut.register(settings.globalHotkey, () => {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      });
+      if (!registered) console.error(`Failed to register global shortcut: ${settings.globalHotkey}`);
+    } catch (error) {
+      console.error(`Invalid global shortcut ${settings.globalHotkey}:`, error);
+    }
   }
+}
+
+function getEffectiveProxy(site) {
+  return resolveProxy(site.proxy, configStore.getSettings());
+}
+
+async function applyProxyToSite(site) {
+  const proxy = getEffectiveProxy(site);
+  await Promise.all(site.accounts.map(account => setProxy(account.partition, proxy)));
+}
+
+function reloadSiteViews(siteId) {
+  for (const view of viewManager.getAllViews()) {
+    if (view.siteId !== siteId || view.state === 'hibernated') continue;
+    viewManager.getView(view.siteId, view.accountId)?.view?.webContents?.reload();
+  }
+}
+
+async function activateConfiguredSite(siteId, accountId) {
+  const sites = configStore.getSites();
+  const site = sites.find(candidate => candidate.id === siteId);
+  if (!site) throw new Error(`Site not found: ${siteId}`);
+  const account = site.accounts.find(candidate => candidate.id === accountId)
+    || site.accounts.find(candidate => candidate.isDefault)
+    || site.accounts[0];
+  if (!account) throw new Error(`No account configured for site: ${siteId}`);
+
+  await viewManager.activate(site, account, getEffectiveProxy(site));
+  configStore.setActiveState(site.id, account.id);
+  hibernationManager?.onSiteActivated(site.id, account.id);
+  mainWindow.webContents.send('site:activated', { siteId: site.id, accountId: account.id });
+  return { site, account };
+}
+
+function setActiveZoom(delta, reset = false) {
+  const contents = viewManager.getActiveView()?.view?.webContents;
+  if (!contents) return;
+  const current = Math.round(100 * Math.pow(1.2, contents.getZoomLevel()));
+  const percent = reset ? 100 : Math.max(25, Math.min(500, current + delta));
+  contents.setZoomLevel(Math.log(percent / 100) / Math.log(1.2));
+  viewManager.sendNavigationState();
+}
+
+async function executeWebContentsCommand(command) {
+  const active = configStore.getActiveState();
+  const contents = viewManager.getActiveView()?.view?.webContents;
+  switch (command.type) {
+    case 'switch-site':
+      await activateConfiguredSite(command.siteId);
+      break;
+    case 'refresh':
+      contents?.reload();
+      break;
+    case 'force-refresh':
+      contents?.reloadIgnoringCache();
+      break;
+    case 'go-back':
+      if (contents?.navigationHistory.canGoBack()) contents.navigationHistory.goBack();
+      break;
+    case 'go-forward':
+      if (contents?.navigationHistory.canGoForward()) contents.navigationHistory.goForward();
+      break;
+    case 'focus-url':
+      mainWindow.webContents.focus();
+      mainWindow.webContents.send('toolbar:focusUrl');
+      break;
+    case 'zoom':
+      setActiveZoom(command.delta);
+      break;
+    case 'zoom-reset':
+      setActiveZoom(0, true);
+      break;
+    case 'hibernate-current':
+      if (active.siteId && active.accountId) {
+        await hibernationManager.forceHibernate(active.siteId, active.accountId);
+      }
+      break;
+    case 'add-site':
+      mainWindow.webContents.send('open:addSite');
+      break;
+    case 'quit':
+      if (trayManager) trayManager.isQuitting = true;
+      app.quit();
+      break;
+  }
+}
+
+function handleWebContentsShortcut(input) {
+  const sites = configStore.getSites();
+  const command = getKeyboardCommand(input, sites, configStore.getActiveState().siteId);
+  if (!command) return false;
+  executeWebContentsCommand(command).catch(error => console.error('Shortcut failed:', error));
+  return true;
 }
 
 function createWindow() {
@@ -62,7 +161,14 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-  viewManager = new ViewManager(mainWindow);
+  viewManager = new ViewManager(mainWindow, {
+    setupContextMenu: (webContents, getMainWindow) => setupContextMenu(
+      webContents,
+      getMainWindow,
+      () => configStore.getSettings().customContextMenu !== false
+    ),
+    onBeforeInput: handleWebContentsShortcut
+  });
   hibernationManager = new HibernationManager(viewManager, configStore);
 
   mainWindow.on('resize', () => {
@@ -111,7 +217,9 @@ function createWindow() {
 
   // Proxy IPC handlers
   ipcMain.handle('proxy:set', async (e, siteId, proxy) => {
-    configStore.updateSite(siteId, { proxy });
+    const site = configStore.updateSite(siteId, { proxy });
+    await applyProxyToSite(site);
+    reloadSiteViews(site.id);
     return { success: true };
   });
   ipcMain.handle('proxy:get', (e, siteId) => {
@@ -123,45 +231,80 @@ function createWindow() {
   // Config store IPC handlers
   ipcMain.handle('site:getAll', () => configStore.getSites());
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
-  ipcMain.handle('site:update', (e, id, data) => configStore.updateSite(id, data));
+  ipcMain.handle('site:update', async (e, id, data) => {
+    const site = configStore.updateSite(id, data);
+    if (Object.hasOwn(data, 'proxy')) {
+      await applyProxyToSite(site);
+      reloadSiteViews(site.id);
+    }
+
+    if (Object.hasOwn(data, 'url')) {
+      const active = configStore.getActiveState();
+      for (const account of site.accounts) {
+        hibernationManager.cancelHibernate(viewManager.getKey(site.id, account.id));
+        viewManager.removeView(site.id, account.id);
+      }
+      if (active.siteId === site.id) {
+        const account = site.accounts.find(candidate => candidate.id === active.accountId)
+          || site.accounts.find(candidate => candidate.isDefault)
+          || site.accounts[0];
+        await viewManager.activate(site, account, getEffectiveProxy(site));
+        configStore.setActiveState(site.id, account.id);
+      }
+    }
+    return site;
+  });
   ipcMain.handle('site:delete', async (e, id) => {
     const sites = configStore.getSites();
     const site = sites.find(s => s.id === id);
     if (!site) throw new Error(`Site not found: ${id}`);
 
+    const wasActive = configStore.getActiveState().siteId === id;
+    const removedSite = configStore.deleteSite(id);
+
+    // Remove all views before clearing their backing sessions.
+    for (const account of removedSite.accounts) {
+      hibernationManager.cancelHibernate(viewManager.getKey(id, account.id));
+      viewManager.removeView(id, account.id);
+    }
+
     // Clean up session data for all accounts
-    for (const account of site.accounts) {
+    for (const account of removedSite.accounts) {
       try {
         await clearSessionData(account.partition);
       } catch (err) {
         console.error(`Failed to clear session for ${account.partition}:`, err);
       }
     }
-
-    // Remove all views for this site
-    for (const account of site.accounts) {
-      viewManager.removeView(id, account.id);
+    try {
+      faviconManager.deleteLocal(id);
+    } catch (error) {
+      console.warn(`Failed to remove favicon for ${id}:`, error.message);
     }
 
-    // Reset active state if this was the active site
-    const active = configStore.getActiveState();
-    if (active.siteId === id) {
-      configStore.setActiveState(null, null);
+    if (wasActive) {
+      const nextSite = configStore.getSites()
+        .sort((left, right) => (left.order || 0) - (right.order || 0))[0];
+      if (nextSite) await activateConfiguredSite(nextSite.id);
     }
-
-    // Delete from config
-    configStore.deleteSite(id);
 
     return { success: true };
   });
   ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
+  ipcMain.handle('site:renameAccount', (e, siteId, accountId, label) => (
+    configStore.renameAccount(siteId, accountId, label)
+  ));
   ipcMain.handle('site:removeAccount', async (e, siteId, accountId) => {
     const sites = configStore.getSites();
     const site = sites.find(s => s.id === siteId);
     if (!site) throw new Error(`Site not found: ${siteId}`);
 
-    const account = site.accounts.find(a => a.id === accountId);
-    if (!account) throw new Error(`Account not found: ${accountId}`);
+    const activeBeforeRemoval = configStore.getActiveState();
+    const account = configStore.removeAccount(siteId, accountId);
+
+    // Remove the live view before clearing its backing session.
+    hibernationManager.cancelHibernate(viewManager.getKey(siteId, accountId));
+    viewManager.removeView(siteId, accountId);
 
     // Clean up session data
     try {
@@ -170,17 +313,10 @@ function createWindow() {
       console.error(`Failed to clear session for ${account.partition}:`, err);
     }
 
-    // Remove view
-    viewManager.removeView(siteId, accountId);
-
     // Reset active state if this was the active account
-    const active = configStore.getActiveState();
-    if (active.siteId === siteId && active.accountId === accountId) {
-      configStore.setActiveState(null, null);
+    if (activeBeforeRemoval.siteId === siteId && activeBeforeRemoval.accountId === accountId) {
+      await activateConfiguredSite(siteId);
     }
-
-    // Remove from config
-    configStore.removeAccount(siteId, accountId);
 
     return { success: true };
   });
@@ -188,8 +324,8 @@ function createWindow() {
   ipcMain.handle('site:getActiveState', () => configStore.getActiveState());
 
   ipcMain.handle('settings:get', () => configStore.getSettings());
-  ipcMain.handle('settings:update', (e, settings) => {
-    configStore.updateSettings(settings);
+  ipcMain.handle('settings:update', async (e, settings) => {
+    const updated = configStore.updateSettings(settings);
 
     if (settings.autoLaunch !== undefined) {
       setAutoLaunch(settings.autoLaunch);
@@ -197,14 +333,43 @@ function createWindow() {
 
     globalShortcut.unregisterAll();
     registerShortcuts();
+    if (settings.defaultProxyMode !== undefined || settings.defaultProxy !== undefined) {
+      const inheritedSites = configStore.getSites().filter(site => !site.proxy);
+      await Promise.all(inheritedSites.map(site => applyProxyToSite(site)));
+      inheritedSites.forEach(site => reloadSiteViews(site.id));
+    }
+    return updated;
   });
 
   ipcMain.handle('config:export', () => configStore.exportConfig());
-  ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
-  ipcMain.handle('config:clearAllSiteData', async () => {
-    const sites = configStore.getSites();
+  ipcMain.handle('config:import', async (e, data) => {
+    const result = configStore.importConfig(data);
+    const settings = configStore.getSettings();
+    setAutoLaunch(settings.autoLaunch);
+    globalShortcut.unregisterAll();
+    registerShortcuts();
 
-    // Clear all session data first
+    hibernationManager.cancelAllCountdowns();
+    viewManager.removeAll();
+    const active = configStore.getActiveState();
+    if (active.siteId) {
+      try {
+        await activateConfiguredSite(active.siteId, active.accountId);
+      } catch (error) {
+        configStore.setActiveState(null, null);
+        console.error('Failed to restore active site after import:', error);
+      }
+    }
+    return result;
+  });
+  ipcMain.handle('config:clearAllSiteData', async () => {
+    const sites = configStore.clearSites();
+
+    // Close views first so open connections do not race storage deletion.
+    hibernationManager.cancelAllCountdowns();
+    viewManager.removeAll();
+
+    // Clear all session data.
     for (const site of sites) {
       for (const account of site.accounts) {
         try {
@@ -213,16 +378,12 @@ function createWindow() {
           console.error(`Failed to clear session for ${account.partition}:`, err);
         }
       }
+      try {
+        faviconManager.deleteLocal(site.id);
+      } catch (error) {
+        console.warn(`Failed to remove favicon for ${site.id}:`, error.message);
+      }
     }
-
-    // Remove all views
-    viewManager.removeAll();
-
-    // Reset active state
-    configStore.setActiveState(null, null);
-
-    // Clear all sites from config (use set to avoid iteration issues)
-    configStore.set('sites', []);
 
     return { success: true };
   });
@@ -230,14 +391,16 @@ function createWindow() {
   // Navigation IPC handlers
   ipcMain.handle('webview:goBack', () => {
     const activeView = viewManager.getActiveView();
-    if (activeView?.view?.webContents?.canGoBack()) {
-      activeView.view.webContents.goBack();
+    const history = activeView?.view?.webContents?.navigationHistory;
+    if (history?.canGoBack()) {
+      history.goBack();
     }
   });
   ipcMain.handle('webview:goForward', () => {
     const activeView = viewManager.getActiveView();
-    if (activeView?.view?.webContents?.canGoForward()) {
-      activeView.view.webContents.goForward();
+    const history = activeView?.view?.webContents?.navigationHistory;
+    if (history?.canGoForward()) {
+      history.goForward();
     }
   });
   ipcMain.handle('webview:refresh', () => {
@@ -255,7 +418,8 @@ function createWindow() {
   ipcMain.handle('webview:setZoom', (e, level) => {
     const activeView = viewManager.getActiveView();
     if (activeView?.view?.webContents) {
-      activeView.view.webContents.setZoomLevel(level);
+      const safeLevel = Math.max(-8, Math.min(8, Number(level) || 0));
+      activeView.view.webContents.setZoomLevel(safeLevel);
     }
   });
 
@@ -276,26 +440,7 @@ function createWindow() {
   });
 
   ipcMain.handle('site:switch', async (e, siteId, accountId) => {
-    const sites = configStore.getSites();
-    const site = sites.find(s => s.id === siteId);
-    if (!site) throw new Error(`Site not found: ${siteId}`);
-
-    const account = site.accounts.find(a => a.id === accountId);
-    if (!account) throw new Error(`Account not found: ${accountId}`);
-
-    let viewData = viewManager.getView(siteId, accountId);
-
-    if (!viewData) {
-      viewData = await viewManager.createView(site, account);
-    }
-
-    await viewManager.switchTo(siteId, accountId);
-    configStore.setActiveState(siteId, accountId);
-
-    if (hibernationManager) {
-      hibernationManager.onSiteActivated(siteId, accountId);
-    }
-
+    await activateConfiguredSite(siteId, accountId);
     return { success: true };
   });
 
@@ -303,10 +448,10 @@ function createWindow() {
   ipcMain.handle('hibernate:status', () => hibernationManager.getStatus());
   ipcMain.handle('hibernate:site', async (e, siteId) => {
     const active = configStore.getActiveState();
-    if (active.siteId === siteId) {
-      return { success: false, reason: 'Cannot hibernate active site' };
-    }
-    const views = viewManager.getAllViews().filter(v => v.siteId === siteId);
+    const views = viewManager.getAllViews().filter(view => (
+      view.siteId === siteId
+      && (active.siteId !== siteId || view.accountId === active.accountId)
+    ));
     for (const v of views) {
       await hibernationManager.forceHibernate(siteId, v.accountId);
     }
@@ -318,14 +463,31 @@ function createWindow() {
     if (!site) throw new Error(`Site not found: ${siteId}`);
 
     if (accountId) {
-      await hibernationManager.forceWake(siteId, accountId, site);
+      const account = site.accounts.find(candidate => candidate.id === accountId);
+      if (!account) throw new Error(`Account not found: ${accountId}`);
+      await hibernationManager.forceWake(
+        siteId,
+        accountId,
+        site,
+        account,
+        getEffectiveProxy(site)
+      );
     } else {
       // Wake all hibernated views for this site
       const hibernated = viewManager.getAllViews().filter(
         v => v.siteId === siteId && v.state === 'hibernated'
       );
       for (const v of hibernated) {
-        await hibernationManager.forceWake(siteId, v.accountId, site);
+        const account = site.accounts.find(candidate => candidate.id === v.accountId);
+        if (account) {
+          await hibernationManager.forceWake(
+            siteId,
+            v.accountId,
+            site,
+            account,
+            getEffectiveProxy(site)
+          );
+        }
       }
     }
     return { success: true };
@@ -334,7 +496,11 @@ function createWindow() {
   // Favicon IPC handlers
   ipcMain.handle('favicon:fetch', async (e, url, siteId, proxyConfig) => {
     try {
-      const localUrl = await faviconManager.fetchAndSave(url, siteId, proxyConfig);
+      const localUrl = await faviconManager.fetchAndSave(
+        url,
+        siteId,
+        resolveProxy(proxyConfig, configStore.getSettings())
+      );
       return { success: true, localUrl };
     } catch (err) {
       return { success: false, error: err.message };
@@ -356,7 +522,10 @@ function createWindow() {
 
   ipcMain.handle('favicon:detectFromDomain', async (e, domain, proxyConfig) => {
     try {
-      const faviconUrl = await faviconManager.fetchFaviconFromDomain(domain, proxyConfig);
+      const faviconUrl = await faviconManager.fetchFaviconFromDomain(
+        domain,
+        resolveProxy(proxyConfig, configStore.getSettings())
+      );
       return { success: true, url: faviconUrl };
     } catch (err) {
       return { success: false, error: err.message };
@@ -368,7 +537,11 @@ function createWindow() {
   });
 
   // Context menu for main window
-  setupContextMenu(mainWindow.webContents, () => mainWindow);
+  setupContextMenu(
+    mainWindow.webContents,
+    () => mainWindow,
+    () => configStore.getSettings().customContextMenu !== false
+  );
 
   // Auto-open first site on startup
   mainWindow.webContents.on('did-finish-load', () => {
@@ -376,8 +549,14 @@ function createWindow() {
     if (sites.length > 0) {
       // Sort by order
       sites.sort((a, b) => (a.order || 0) - (b.order || 0));
-      const firstSite = sites[0];
-      const defaultAccount = firstSite.accounts.find(a => a.isDefault) || firstSite.accounts[0];
+      const savedActive = configStore.getActiveState();
+      const savedSite = sites.find(site => site.id === savedActive.siteId);
+      const firstSite = savedSite || sites[0];
+      const savedAccount = firstSite.accounts.find(account => account.id === savedActive.accountId);
+      const defaultAccount = savedAccount
+        || firstSite.accounts.find(account => account.isDefault)
+        || firstSite.accounts[0];
+      if (!defaultAccount) return;
 
       // Send message to renderer to open first site
       setTimeout(() => {

@@ -1,7 +1,48 @@
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
+function safeImageUrl(value) {
+  try {
+    const url = new URL(String(value));
+    return ['http:', 'https:', 'file:'].includes(url.protocol) ? escapeHtml(url.toString()) : '';
+  } catch {
+    return '';
+  }
+}
+
+function trackDialog(dialog) {
+  const token = Symbol('dialog');
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener('keydown', onKeyDown, true);
+    dialog.remove();
+    window.viewOverlay.release(token);
+  };
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.stopImmediatePropagation();
+      close();
+    }
+  };
+  window.viewOverlay.acquire(token);
+  document.addEventListener('keydown', onKeyDown, true);
+  return close;
+}
+
 class SiteManager {
   constructor(sidebar) {
     this.sidebar = sidebar;
     this.isOpen = false;
+    this.overlayToken = Symbol('site-manager');
     this.init();
   }
 
@@ -44,14 +85,14 @@ class SiteManager {
     document.getElementById('site-manager-overlay').classList.remove('hidden');
     await this.renderSiteList();
     // Hide the webview so overlay is visible
-    window.api.hideView?.();
+    window.viewOverlay.acquire(this.overlayToken);
   }
 
   close() {
     this.isOpen = false;
     document.getElementById('site-manager-overlay').classList.add('hidden');
     // Show the webview again
-    window.api.showView?.();
+    window.viewOverlay.release(this.overlayToken);
   }
 
   async renderSiteList() {
@@ -61,36 +102,36 @@ class SiteManager {
     const container = document.getElementById('site-list-container');
 
     container.innerHTML = sites.map((site, index) => `
-      <div class="site-card" data-site-id="${site.id}" data-index="${index}">
+      <div class="site-card" data-site-id="${escapeHtml(site.id)}" data-index="${index}">
         <div class="site-card-header">
-          <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${site.name}" draggable="true" data-site-id="${site.id}">⠿</span>
+          <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${escapeHtml(site.name)}" draggable="true" data-site-id="${escapeHtml(site.id)}">⠿</span>
           <span class="site-card-icon" aria-hidden="true">
             ${site.faviconUrl
-              ? `<img src="${site.faviconUrl}" class="site-card-favicon" onerror="this.outerHTML='${site.icon}'">`
-              : site.icon
+              ? `<img src="${safeImageUrl(site.faviconUrl)}" class="site-card-favicon" data-fallback="${escapeHtml(site.icon)}">`
+              : escapeHtml(site.icon)
             }
           </span>
-          <span class="site-card-name">${site.name}</span>
+          <span class="site-card-name">${escapeHtml(site.name)}</span>
           <div class="site-card-actions">
-            <button class="site-edit-btn" data-site-id="${site.id}" aria-label="编辑 ${site.name}">✎</button>
-            <button class="site-delete-btn" data-site-id="${site.id}" aria-label="删除 ${site.name}">🗑</button>
+            <button class="site-edit-btn" data-site-id="${escapeHtml(site.id)}" aria-label="编辑 ${escapeHtml(site.name)}">✎</button>
+            <button class="site-delete-btn" data-site-id="${escapeHtml(site.id)}" aria-label="删除 ${escapeHtml(site.name)}">🗑</button>
           </div>
         </div>
         <div class="site-card-details">
           <div class="site-detail">
             <span class="detail-label">URL:</span>
-            <span class="detail-value">${site.url}</span>
+            <span class="detail-value">${escapeHtml(site.url)}</span>
           </div>
           <div class="site-detail">
             <span class="detail-label">代理:</span>
-            <span class="detail-value">${site.proxy || '默认'}</span>
+            <span class="detail-value">${escapeHtml(site.proxy || '默认')}</span>
           </div>
           <div class="site-detail">
             <span class="detail-label">快捷键:</span>
             <div class="shortcut-controls">
-              <span class="shortcut-display ${site.shortcut ? 'has-shortcut' : 'no-shortcut'}">${site.shortcut || '未设置'}</span>
-              <button class="shortcut-edit-btn" data-site-id="${site.id}" data-shortcut="${site.shortcut || ''}" title="修改快捷键">✎</button>
-              ${site.shortcut ? `<button class="shortcut-remove-btn" data-site-id="${site.id}" title="删除快捷键">×</button>` : ''}
+              <span class="shortcut-display ${site.shortcut ? 'has-shortcut' : 'no-shortcut'}">${escapeHtml(site.shortcut || '未设置')}</span>
+              <button class="shortcut-edit-btn" data-site-id="${escapeHtml(site.id)}" data-shortcut="${escapeHtml(site.shortcut || '')}" title="修改快捷键">✎</button>
+              ${site.shortcut ? `<button class="shortcut-remove-btn" data-site-id="${escapeHtml(site.id)}" title="删除快捷键">×</button>` : ''}
             </div>
           </div>
           <div class="site-detail">
@@ -98,17 +139,25 @@ class SiteManager {
             <div class="account-list-inline">
               ${site.accounts.map(acc => `
                 <span class="account-tag ${acc.isDefault ? 'default' : ''}">
-                  <span class="account-label-text">${acc.label}</span>
-                  <button class="rename-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" data-label="${acc.label}" title="重命名" aria-label="重命名 ${acc.label}">✎</button>
-                  ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" title="删除账号" aria-label="删除 ${acc.label}">×</button>` : ''}
+                  <span class="account-label-text">${escapeHtml(acc.label)}</span>
+                  <button class="rename-account-btn" data-site-id="${escapeHtml(site.id)}" data-account-id="${escapeHtml(acc.id)}" data-label="${escapeHtml(acc.label)}" title="重命名" aria-label="重命名 ${escapeHtml(acc.label)}">✎</button>
+                  ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${escapeHtml(site.id)}" data-account-id="${escapeHtml(acc.id)}" title="删除账号" aria-label="删除 ${escapeHtml(acc.label)}">×</button>` : ''}
                 </span>
               `).join('')}
-              <button class="add-account-btn" data-site-id="${site.id}">+ 添加</button>
+              <button class="add-account-btn" data-site-id="${escapeHtml(site.id)}">+ 添加</button>
             </div>
           </div>
         </div>
       </div>
     `).join('');
+
+    container.querySelectorAll('.site-card-favicon').forEach(image => {
+      image.addEventListener('error', () => {
+        const fallback = document.createElement('span');
+        fallback.textContent = image.dataset.fallback || '🌐';
+        image.replaceWith(fallback);
+      }, { once: true });
+    });
 
     // Add drag and drop event listeners
     this.setupDragAndDrop(container);
@@ -412,6 +461,7 @@ class SiteManager {
     `;
 
     document.body.appendChild(dialog);
+    const closeDialog = trackDialog(dialog);
 
     // Focus on name input
     setTimeout(() => dialog.querySelector('#add-name').focus(), 100);
@@ -446,7 +496,7 @@ class SiteManager {
         const googleUrl = await window.api.getGoogleFaviconUrl(domain);
         dialog.querySelector('#add-icon').value = googleUrl;
         preview.innerHTML = `
-          <img src="${googleUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+          <img src="${safeImageUrl(googleUrl)}" style="max-width:32px;max-height:32px;">
           <span class="favicon-status">已设置 (Google Favicon)</span>
         `;
       } catch (err) {
@@ -466,9 +516,9 @@ class SiteManager {
     });
 
     // Cancel
-    dialog.querySelector('#add-cancel').addEventListener('click', () => dialog.remove());
+    dialog.querySelector('#add-cancel').addEventListener('click', closeDialog);
     dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) dialog.remove();
+      if (e.target === dialog) closeDialog();
     });
 
     // Save
@@ -506,11 +556,13 @@ class SiteManager {
 
         // If icon is a URL, fetch and save locally
         if (isUrl && newSite?.id) {
-          await window.api.fetchFavicon(iconValue, newSite.id, proxy);
-          await window.api.updateSite(newSite.id, { faviconUrl: iconValue });
+          const result = await window.api.fetchFavicon(iconValue, newSite.id, proxy);
+          await window.api.updateSite(newSite.id, {
+            faviconUrl: result.success ? result.localUrl : iconValue
+          });
         }
 
-        dialog.remove();
+        closeDialog();
         await this.renderSiteList();
         await this.sidebar.loadSites();
         this.sidebar.render();
@@ -533,30 +585,30 @@ class SiteManager {
     dialog.className = 'edit-dialog-overlay';
     dialog.innerHTML = `
       <div class="edit-dialog">
-        <h3>编辑站点 - ${site.name}</h3>
+        <h3>编辑站点 - ${escapeHtml(site.name)}</h3>
         <div class="edit-field">
           <label>名称</label>
-          <input type="text" id="edit-name" value="${site.name}">
+          <input type="text" id="edit-name" value="${escapeHtml(site.name)}">
         </div>
         <div class="edit-field">
           <label>URL</label>
-          <input type="text" id="edit-url" value="${site.url}">
+          <input type="text" id="edit-url" value="${escapeHtml(site.url)}">
         </div>
         <div class="edit-field">
           <label>图标 (emoji 或 URL)</label>
           <div class="icon-input-row">
-            <input type="text" id="edit-icon" value="${site.icon}" placeholder="🌐 或 https://...">
+            <input type="text" id="edit-icon" value="${escapeHtml(site.icon)}" placeholder="🌐 或 https://...">
             <button id="edit-detect-favicon" class="settings-action-btn small" title="自动检测网站图标">🔍</button>
           </div>
           <div class="favicon-preview" id="favicon-preview">
-            ${site.faviconUrl ? `<img src="${site.faviconUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">` : ''}
-            ${localFavicon ? `<img src="${localFavicon}" style="max-width:32px;max-height:32px;">` : ''}
+            ${site.faviconUrl ? `<img src="${safeImageUrl(site.faviconUrl)}" style="max-width:32px;max-height:32px;">` : ''}
+            ${localFavicon ? `<img src="${safeImageUrl(localFavicon)}" style="max-width:32px;max-height:32px;">` : ''}
             <span class="favicon-status">${hasFavicon ? '已设置' : '未设置'}</span>
           </div>
         </div>
         <div class="edit-field">
           <label>颜色</label>
-          <input type="color" id="edit-color" value="${site.color}">
+          <input type="color" id="edit-color" value="${escapeHtml(site.color)}">
         </div>
         <div class="edit-field">
           <label>代理</label>
@@ -566,7 +618,7 @@ class SiteManager {
             <option value="system" ${site.proxy === 'system' ? 'selected' : ''}>系统代理</option>
             <option value="custom" ${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? 'selected' : ''}>自定义</option>
           </select>
-          <input type="text" id="edit-proxy" value="${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? site.proxy : ''}" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" style="display:${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? 'block' : 'none'}">
+          <input type="text" id="edit-proxy" value="${escapeHtml(site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? site.proxy : '')}" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" style="display:${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? 'block' : 'none'}">
         </div>
         <div class="edit-actions">
           <button id="edit-cancel" class="settings-action-btn">取消</button>
@@ -576,6 +628,7 @@ class SiteManager {
     `;
 
     document.body.appendChild(dialog);
+    const closeDialog = trackDialog(dialog);
 
     // Detect favicon button - use Google favicon service
     dialog.querySelector('#edit-detect-favicon').addEventListener('click', async () => {
@@ -594,7 +647,7 @@ class SiteManager {
         const googleUrl = await window.api.getGoogleFaviconUrl(domain);
         dialog.querySelector('#edit-icon').value = googleUrl;
         preview.innerHTML = `
-          <img src="${googleUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+          <img src="${safeImageUrl(googleUrl)}" style="max-width:32px;max-height:32px;">
           <span class="favicon-status">已设置 (Google Favicon)</span>
         `;
       } catch (err) {
@@ -607,47 +660,52 @@ class SiteManager {
         e.target.value === 'custom' ? 'block' : 'none';
     });
 
-    dialog.querySelector('#edit-cancel').addEventListener('click', () => dialog.remove());
+    dialog.querySelector('#edit-cancel').addEventListener('click', closeDialog);
 
     dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) dialog.remove();
+      if (e.target === dialog) closeDialog();
     });
 
     dialog.querySelector('#edit-save').addEventListener('click', async () => {
-      const proxyMode = dialog.querySelector('#edit-proxy-mode').value;
-      let proxy = '';
-      if (proxyMode === 'direct') proxy = 'direct';
-      else if (proxyMode === 'system') proxy = 'system';
-      else if (proxyMode === 'custom') proxy = dialog.querySelector('#edit-proxy').value.trim();
+      try {
+        const proxyMode = dialog.querySelector('#edit-proxy-mode').value;
+        let proxy = '';
+        if (proxyMode === 'direct') proxy = 'direct';
+        else if (proxyMode === 'system') proxy = 'system';
+        else if (proxyMode === 'custom') proxy = dialog.querySelector('#edit-proxy').value.trim();
 
-      const iconValue = dialog.querySelector('#edit-icon').value.trim();
-      const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
+        const iconValue = dialog.querySelector('#edit-icon').value.trim();
+        const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
+        let faviconUrl = null;
 
-      // If icon is a URL, fetch and save locally (using proxy if configured)
-      if (isUrl) {
-        const result = await window.api.fetchFavicon(iconValue, siteId, proxy);
-        if (result.success) {
-          await window.api.updateSite(siteId, {
-            faviconUrl: iconValue,
-            icon: '🌐' // Default emoji while favicon loads
-          });
+        // If icon is a URL, fetch and save locally (using proxy if configured)
+        if (isUrl) {
+          const result = await window.api.fetchFavicon(iconValue, siteId, proxy);
+          if (result.success) {
+            faviconUrl = result.localUrl;
+          } else {
+            faviconUrl = iconValue;
+          }
         } else {
-          console.error('Failed to fetch favicon:', result.error);
+          await window.api.deleteLocalFavicon(siteId);
         }
+
+        await window.api.updateSite(siteId, {
+          name: dialog.querySelector('#edit-name').value,
+          url: dialog.querySelector('#edit-url').value,
+          icon: isUrl ? '🌐' : iconValue,
+          faviconUrl,
+          color: dialog.querySelector('#edit-color').value,
+          proxy
+        });
+
+        closeDialog();
+        await this.renderSiteList();
+        await this.sidebar.loadSites();
+        this.sidebar.render();
+      } catch (err) {
+        alert('保存失败: ' + err.message);
       }
-
-      await window.api.updateSite(siteId, {
-        name: dialog.querySelector('#edit-name').value,
-        url: dialog.querySelector('#edit-url').value,
-        icon: isUrl ? '🌐' : iconValue,
-        color: dialog.querySelector('#edit-color').value,
-        proxy
-      });
-
-      dialog.remove();
-      await this.renderSiteList();
-      await this.sidebar.loadSites();
-      this.sidebar.render();
     });
   }
 
@@ -712,19 +770,7 @@ class SiteManager {
     if (!newLabel || newLabel === currentLabel) return;
 
     try {
-      // Update the account label in the site's accounts array
-      const sites = await window.api.getSites();
-      const site = sites.find(s => s.id === siteId);
-      if (!site) return;
-
-      const updatedAccounts = site.accounts.map(acc => {
-        if (acc.id === accountId) {
-          return { ...acc, label: newLabel };
-        }
-        return acc;
-      });
-
-      await window.api.updateSite(siteId, { accounts: updatedAccounts });
+      await window.api.renameAccount(siteId, accountId, newLabel.trim());
       await this.renderSiteList();
       await this.sidebar.loadSites();
       this.sidebar.render();
@@ -748,10 +794,10 @@ class SiteManager {
     dialog.className = 'edit-dialog-overlay';
     dialog.innerHTML = `
       <div class="edit-dialog">
-        <h3>设置快捷键 - ${site.name}</h3>
+        <h3>设置快捷键 - ${escapeHtml(site.name)}</h3>
         <div class="edit-field">
           <label>当前快捷键</label>
-          <span class="current-shortcut">${currentShortcut || '未设置'}</span>
+          <span class="current-shortcut">${escapeHtml(currentShortcut || '未设置')}</span>
         </div>
         <div class="edit-field">
           <label>按下新的快捷键组合</label>
@@ -774,6 +820,7 @@ class SiteManager {
     `;
 
     document.body.appendChild(dialog);
+    const closeDialog = trackDialog(dialog);
 
     let capturedShortcut = null;
     const captureArea = dialog.querySelector('#shortcut-capture');
@@ -836,16 +883,16 @@ class SiteManager {
     });
 
     // Cancel
-    dialog.querySelector('#shortcut-cancel').addEventListener('click', () => dialog.remove());
+    dialog.querySelector('#shortcut-cancel').addEventListener('click', closeDialog);
     dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) dialog.remove();
+      if (e.target === dialog) closeDialog();
     });
 
     // Save
     saveBtn.addEventListener('click', async () => {
       try {
         await window.api.updateSite(siteId, { shortcut: capturedShortcut || null });
-        dialog.remove();
+        closeDialog();
         await this.renderSiteList();
       } catch (err) {
         alert('保存失败: ' + err.message);

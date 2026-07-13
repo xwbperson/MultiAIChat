@@ -8,6 +8,7 @@ class Sidebar {
     this.badges = new Map();
     this.hibernatedKeys = new Set();
     this.toolbar = null;
+    this.showBadges = true;
 
     this.init();
   }
@@ -17,12 +18,19 @@ class Sidebar {
   }
 
   async init() {
+    const settings = await window.api.getSettings();
+    this.showBadges = settings.showBadges !== false;
     await this.loadSites();
     this.render();
 
     window.api.onBadgeUpdate(({ siteId, count }) => {
       this.badges.set(siteId, count);
       this.updateBadge(siteId);
+    });
+
+    window.addEventListener('settings-changed', event => {
+      this.showBadges = event.detail.showBadges !== false;
+      this.render();
     });
 
     window.api.onHibernateStatus(({ siteId, accountId, state }) => {
@@ -86,11 +94,10 @@ class Sidebar {
       icon.alt = site.name;
       icon.onerror = () => {
         // Fallback to emoji on error
-        icon.style.display = 'none';
         const emojiIcon = document.createElement('span');
         emojiIcon.className = 'site-icon';
         emojiIcon.textContent = site.icon;
-        iconWrapper.appendChild(emojiIcon);
+        icon.replaceWith(emojiIcon);
       };
     } else {
       icon = document.createElement('span');
@@ -112,7 +119,9 @@ class Sidebar {
     const badge = document.createElement('span');
     badge.className = 'site-badge';
     badge.dataset.siteId = site.id;
-    badge.style.display = 'none';
+    const badgeCount = this.badges.get(site.id) || 0;
+    badge.textContent = badgeCount;
+    badge.style.display = this.showBadges && badgeCount > 0 ? 'flex' : 'none';
 
     btn.appendChild(iconWrapper);
     btn.appendChild(name);
@@ -177,9 +186,11 @@ class Sidebar {
       accountList.className = 'account-list';
 
       site.accounts.forEach(account => {
-        const accountBtn = document.createElement('button');
+        const accountBtn = document.createElement('div');
         accountBtn.className = `account-btn ${account.id === this.activeAccountId ? 'active' : ''}`;
         accountBtn.setAttribute('aria-label', `切换到 ${site.name} - ${account.label}`);
+        accountBtn.setAttribute('role', 'button');
+        accountBtn.tabIndex = 0;
 
         const dot = document.createElement('span');
         dot.className = `account-dot ${this.isHibernated(site.id, account.id) ? 'hibernated' : ''}`;
@@ -208,6 +219,13 @@ class Sidebar {
         accountBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           this.selectSite(site.id, account.id);
+        });
+        accountBtn.addEventListener('keydown', (e) => {
+          if (e.target !== accountBtn) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.selectSite(site.id, account.id);
+          }
         });
 
         accountList.appendChild(accountBtn);
@@ -238,6 +256,10 @@ class Sidebar {
   }
 
   async selectSite(siteId, accountId) {
+    const previous = {
+      siteId: this.activeSiteId,
+      accountId: this.activeAccountId
+    };
     this.activeSiteId = siteId;
     this.activeAccountId = accountId;
     this.render();
@@ -250,16 +272,27 @@ class Sidebar {
       }
     }
 
-    await window.api.switchSite(siteId, accountId);
+    try {
+      await window.api.switchSite(siteId, accountId);
+    } catch (error) {
+      this.activeSiteId = previous.siteId;
+      this.activeAccountId = previous.accountId;
+      this.render();
+      alert('切换站点失败: ' + error.message);
+    }
+  }
+
+  syncActiveSite(siteId, accountId) {
+    this.activeSiteId = siteId;
+    this.activeAccountId = accountId;
+    this.render();
   }
 
   async addAccount(siteId) {
     const label = prompt('请输入账号名称:');
     if (!label) return;
 
-    const accountId = `${siteId}-${Date.now()}`;
-
-    await window.api.addAccount(siteId, { id: accountId, label });
+    await window.api.addAccount(siteId, { label });
     await this.loadSites();
     this.render();
   }
@@ -296,7 +329,7 @@ class Sidebar {
     if (badge) {
       const count = this.badges.get(siteId) || 0;
       badge.textContent = count;
-      badge.style.display = count > 0 ? 'flex' : 'none';
+      badge.style.display = this.showBadges && count > 0 ? 'flex' : 'none';
     }
   }
 

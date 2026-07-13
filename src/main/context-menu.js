@@ -1,15 +1,16 @@
 const { Menu, clipboard } = require('electron');
 
-function setupContextMenu(webContents, getMainWindow) {
+function setupContextMenu(webContents, getMainWindow, isEnabled = () => true) {
   webContents.on('context-menu', (e, params) => {
-    const mainWindow = getMainWindow();
+    if (!isEnabled()) return;
     const template = [];
 
     // Navigation (only for webviews that support it)
     if (params.pageURL) {
+      const history = webContents.navigationHistory;
       template.push(
-        { label: '后退', enabled: params.canGoBack, click: () => webContents.goBack() },
-        { label: '前进', enabled: params.canGoForward, click: () => webContents.goForward() },
+        { label: '后退', enabled: history?.canGoBack?.() || false, click: () => history.goBack() },
+        { label: '前进', enabled: history?.canGoForward?.() || false, click: () => history.goForward() },
         { type: 'separator' },
         { label: '刷新', click: () => webContents.reload() },
         { type: 'separator' }

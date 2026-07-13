@@ -62,7 +62,9 @@ class Sidebar {
 
     const btn = document.createElement('button');
     btn.className = `site-btn ${isActive ? 'active' : ''}`;
-    btn.title = site.name;
+    // Build tooltip with shortcut info
+    const tooltip = site.shortcut ? `${site.name} (${site.shortcut})` : site.name;
+    btn.title = tooltip;
     btn.setAttribute('aria-label', `切换到 ${site.name}`);
     btn.setAttribute('role', 'button');
 
@@ -88,7 +90,7 @@ class Sidebar {
 
     const name = document.createElement('span');
     name.className = 'site-name';
-    name.textContent = site.name.length > 6 ? site.name.slice(0, 6) : site.name;
+    name.textContent = site.name;
 
     const badge = document.createElement('span');
     badge.className = 'site-badge';

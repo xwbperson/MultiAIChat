@@ -196,9 +196,9 @@ class ViewManager {
     if (!view) return;
     const { width, height } = this.mainWindow.getContentBounds();
     view.setBounds({
-      x: 68,
+      x: 80,
       y: 72,
-      width: width - 68,
+      width: width - 80,
       height: height - 72 - 24
     });
   }

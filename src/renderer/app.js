@@ -65,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const siteManager = new SiteManager(sidebar);
   const statusBar = new StatusBar();
 
+  // Connect sidebar and toolbar
+  sidebar.setToolbar(toolbar);
+
   // Handle tray menu commands
   window.api.onOpenSiteManager?.(() => siteManager.open());
   window.api.onOpenSettings?.(() => settingsPanel.open());

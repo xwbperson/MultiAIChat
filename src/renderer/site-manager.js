@@ -77,7 +77,10 @@ class SiteManager {
             <span class="detail-label">账号:</span>
             <div class="account-list-inline">
               ${site.accounts.map(acc => `
-                <span class="account-tag ${acc.isDefault ? 'default' : ''}">${acc.label}</span>
+                <span class="account-tag ${acc.isDefault ? 'default' : ''}">
+                  ${acc.label}
+                  ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" title="删除账号">×</button>` : ''}
+                </span>
               `).join('')}
               <button class="add-account-btn" data-site-id="${site.id}">+ 添加</button>
             </div>
@@ -97,19 +100,160 @@ class SiteManager {
     container.querySelectorAll('.add-account-btn').forEach(btn => {
       btn.addEventListener('click', () => this.addAccount(btn.dataset.siteId));
     });
+
+    container.querySelectorAll('.remove-account-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeAccount(btn.dataset.siteId, btn.dataset.accountId);
+      });
+    });
   }
 
   showAddSite() {
-    const name = prompt('站点名称:');
-    if (!name) return;
-    const url = prompt('站点 URL:', 'https://');
-    if (!url) return;
-    const icon = prompt('图标 (emoji):', '🌐') || '🌐';
-    const color = prompt('颜色 (hex):', '#89b4fa') || '#89b4fa';
+    const dialog = document.createElement('div');
+    dialog.className = 'edit-dialog-overlay';
+    dialog.innerHTML = `
+      <div class="edit-dialog">
+        <h3>添加新站点</h3>
+        <div class="edit-field">
+          <label>站点名称 *</label>
+          <input type="text" id="add-name" placeholder="例如: ChatGPT" autofocus>
+        </div>
+        <div class="edit-field">
+          <label>站点 URL *</label>
+          <input type="text" id="add-url" placeholder="https://chat.openai.com" value="https://">
+        </div>
+        <div class="edit-field">
+          <label>图标 (emoji)</label>
+          <input type="text" id="add-icon" placeholder="🌐" value="🌐">
+        </div>
+        <div class="edit-field">
+          <label>颜色</label>
+          <div class="color-picker-row">
+            <input type="color" id="add-color" value="#89b4fa">
+            <span class="color-preview">#89b4fa</span>
+          </div>
+        </div>
+        <div class="edit-field">
+          <label>代理设置</label>
+          <select id="add-proxy-mode">
+            <option value="">使用默认</option>
+            <option value="direct">直连</option>
+            <option value="system">系统代理</option>
+            <option value="custom">自定义代理</option>
+          </select>
+          <input type="text" id="add-proxy" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" style="display:none; margin-top: 8px;">
+        </div>
+        <div class="edit-actions">
+          <button id="add-cancel" class="settings-action-btn">取消</button>
+          <button id="add-save" class="settings-action-btn primary">添加</button>
+        </div>
+        <div class="quick-add-section">
+          <h4>快速添加常用站点</h4>
+          <div class="quick-add-grid">
+            <button class="quick-add-btn" data-name="ChatGPT" data-url="https://chatgpt.com" data-icon="🤖" data-color="#10a37f">
+              <span class="quick-icon">🤖</span>
+              <span class="quick-name">ChatGPT</span>
+            </button>
+            <button class="quick-add-btn" data-name="Claude" data-url="https://claude.ai" data-icon="🧠" data-color="#d4a574">
+              <span class="quick-icon">🧠</span>
+              <span class="quick-name">Claude</span>
+            </button>
+            <button class="quick-add-btn" data-name="DeepSeek" data-url="https://chat.deepseek.com" data-icon="🔷" data-color="#4d6bfe">
+              <span class="quick-icon">🔷</span>
+              <span class="quick-name">DeepSeek</span>
+            </button>
+            <button class="quick-add-btn" data-name="Kimi" data-url="https://kimi.moonshot.cn" data-icon="🌙" data-color="#6236d9">
+              <span class="quick-icon">🌙</span>
+              <span class="quick-name">Kimi</span>
+            </button>
+            <button class="quick-add-btn" data-name="豆包" data-url="https://www.doubao.com" data-icon="🤖" data-color="#fe694a">
+              <span class="quick-icon">🤖</span>
+              <span class="quick-name">豆包</span>
+            </button>
+            <button class="quick-add-btn" data-name="Copilot" data-url="https://copilot.microsoft.com" data-icon="🪟" data-color="#7c3aed">
+              <span class="quick-icon">🪟</span>
+              <span class="quick-name">Copilot</span>
+            </button>
+            <button class="quick-add-btn" data-name="Gemini" data-url="https://gemini.google.com" data-icon="💎" data-color="#4285f4">
+              <span class="quick-icon">💎</span>
+              <span class="quick-name">Gemini</span>
+            </button>
+            <button class="quick-add-btn" data-name="Perplexity" data-url="https://www.perplexity.ai" data-icon="🔍" data-color="#20b2aa">
+              <span class="quick-icon">🔍</span>
+              <span class="quick-name">Perplexity</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
 
-    window.api.addSite({ name, url, icon, color });
-    this.renderSiteList();
-    this.sidebar.loadSites().then(() => this.sidebar.render());
+    document.body.appendChild(dialog);
+
+    // Focus on name input
+    setTimeout(() => dialog.querySelector('#add-name').focus(), 100);
+
+    // Color picker update
+    const colorInput = dialog.querySelector('#add-color');
+    const colorPreview = dialog.querySelector('.color-preview');
+    colorInput.addEventListener('input', () => {
+      colorPreview.textContent = colorInput.value;
+    });
+
+    // Proxy mode change
+    dialog.querySelector('#add-proxy-mode').addEventListener('change', (e) => {
+      dialog.querySelector('#add-proxy').style.display =
+        e.target.value === 'custom' ? 'block' : 'none';
+    });
+
+    // Quick add buttons
+    dialog.querySelectorAll('.quick-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        dialog.querySelector('#add-name').value = btn.dataset.name;
+        dialog.querySelector('#add-url').value = btn.dataset.url;
+        dialog.querySelector('#add-icon').value = btn.dataset.icon;
+        dialog.querySelector('#add-color').value = btn.dataset.color;
+        colorPreview.textContent = btn.dataset.color;
+      });
+    });
+
+    // Cancel
+    dialog.querySelector('#add-cancel').addEventListener('click', () => dialog.remove());
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.remove();
+    });
+
+    // Save
+    dialog.querySelector('#add-save').addEventListener('click', async () => {
+      const name = dialog.querySelector('#add-name').value.trim();
+      const url = dialog.querySelector('#add-url').value.trim();
+      const icon = dialog.querySelector('#add-icon').value.trim() || '🌐';
+      const color = dialog.querySelector('#add-color').value;
+      const proxyMode = dialog.querySelector('#add-proxy-mode').value;
+      let proxy = '';
+      if (proxyMode === 'direct') proxy = 'direct';
+      else if (proxyMode === 'system') proxy = 'system';
+      else if (proxyMode === 'custom') proxy = dialog.querySelector('#add-proxy').value.trim();
+
+      if (!name) {
+        alert('请输入站点名称');
+        return;
+      }
+      if (!url || url === 'https://') {
+        alert('请输入有效的站点 URL');
+        return;
+      }
+
+      try {
+        await window.api.addSite({ name, url, icon, color, proxy });
+        dialog.remove();
+        await this.renderSiteList();
+        await this.sidebar.loadSites();
+        this.sidebar.render();
+      } catch (err) {
+        alert('添加失败: ' + err.message);
+      }
+    });
   }
 
   async showEditSite(siteId) {
@@ -191,11 +335,23 @@ class SiteManager {
   }
 
   async deleteSite(siteId) {
-    if (!confirm('确定要删除此站点吗？所有账号数据将被清除。')) return;
-    await window.api.deleteSite(siteId);
-    await this.renderSiteList();
-    await this.sidebar.loadSites();
-    this.sidebar.render();
+    const sites = await window.api.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    const accountCount = site.accounts.length;
+    const message = `确定要删除 "${site.name}" 吗？\n\n将删除 ${accountCount} 个账号的所有数据（Cookie、缓存等），此操作不可撤销。`;
+
+    if (!confirm(message)) return;
+
+    try {
+      await window.api.deleteSite(siteId);
+      await this.renderSiteList();
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    } catch (err) {
+      alert('删除失败: ' + err.message);
+    }
   }
 
   async addAccount(siteId) {
@@ -207,6 +363,31 @@ class SiteManager {
     await this.renderSiteList();
     await this.sidebar.loadSites();
     this.sidebar.render();
+  }
+
+  async removeAccount(siteId, accountId) {
+    const sites = await window.api.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    const account = site.accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    if (site.accounts.length <= 1) {
+      alert('不能删除最后一个账号，请直接删除站点。');
+      return;
+    }
+
+    if (!confirm(`确定要删除账号 "${account.label}" 吗？该账号的所有数据将被清除。`)) return;
+
+    try {
+      await window.api.removeAccount(siteId, accountId);
+      await this.renderSiteList();
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    } catch (err) {
+      alert('删除账号失败: ' + err.message);
+    }
   }
 }
 

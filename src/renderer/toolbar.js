@@ -75,7 +75,10 @@ class Toolbar {
     if (zoomEl) {
       zoomEl.textContent = `${level}%`;
     }
-    window.api.setZoom?.(level / 100);
+    // Electron zoom level: 0 = 100%, positive = zoom in, negative = zoom out
+    // Convert percentage to zoom level: level 0 = 100%, each step ~20%
+    const zoomLevel = Math.log(level / 100) / Math.log(1.2);
+    window.api.setZoom?.(zoomLevel);
   }
 
   showTooltip(text) {

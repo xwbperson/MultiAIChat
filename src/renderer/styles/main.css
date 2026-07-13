@@ -296,6 +296,25 @@ html, body {
   opacity: 0.5;
 }
 
+.account-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.account-remove:hover {
+  background: var(--danger);
+  color: white;
+}
+
 #main {
   grid-row: 2;
   display: flex;
@@ -686,6 +705,28 @@ html, body {
   color: var(--accent);
 }
 
+.remove-account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.remove-account-btn:hover {
+  background: var(--danger);
+  color: white;
+}
+
 .add-account-btn {
   padding: 2px 8px;
   background: transparent;
@@ -776,4 +817,70 @@ html, body {
 
 .settings-action-btn.primary:hover {
   background: var(--accent-hover);
+}
+
+/* Color Picker Row */
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-picker-row input[type="color"] {
+  width: 50px;
+  height: 32px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.color-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* Quick Add Buttons */
+.quick-add-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.quick-add-section h4 {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.quick-add-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.quick-add-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quick-add-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-primary);
+}
+
+.quick-add-btn .quick-icon {
+  font-size: 20px;
+}
+
+.quick-add-btn .quick-name {
+  font-size: 10px;
+  color: var(--text-secondary);
 }

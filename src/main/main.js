@@ -116,8 +116,68 @@ function createWindow() {
   ipcMain.handle('site:getAll', () => configStore.getSites());
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
   ipcMain.handle('site:update', (e, id, data) => configStore.updateSite(id, data));
-  ipcMain.handle('site:delete', (e, id) => configStore.deleteSite(id));
+  ipcMain.handle('site:delete', async (e, id) => {
+    const sites = configStore.getSites();
+    const site = sites.find(s => s.id === id);
+    if (!site) throw new Error(`Site not found: ${id}`);
+
+    // Clean up session data for all accounts
+    const { clearSessionData } = require('./session-manager');
+    for (const account of site.accounts) {
+      try {
+        await clearSessionData(account.partition);
+      } catch (err) {
+        console.error(`Failed to clear session for ${account.partition}:`, err);
+      }
+    }
+
+    // Remove all views for this site
+    for (const account of site.accounts) {
+      viewManager.removeView(id, account.id);
+    }
+
+    // Reset active state if this was the active site
+    const active = configStore.getActiveState();
+    if (active.siteId === id) {
+      configStore.setActiveState(null, null);
+    }
+
+    // Delete from config
+    configStore.deleteSite(id);
+
+    return { success: true };
+  });
   ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
+  ipcMain.handle('site:removeAccount', async (e, siteId, accountId) => {
+    const { clearSessionData } = require('./session-manager');
+    const sites = configStore.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) throw new Error(`Site not found: ${siteId}`);
+
+    const account = site.accounts.find(a => a.id === accountId);
+    if (!account) throw new Error(`Account not found: ${accountId}`);
+
+    // Clean up session data
+    try {
+      await clearSessionData(account.partition);
+    } catch (err) {
+      console.error(`Failed to clear session for ${account.partition}:`, err);
+    }
+
+    // Remove view
+    viewManager.removeView(siteId, accountId);
+
+    // Reset active state if this was the active account
+    const active = configStore.getActiveState();
+    if (active.siteId === siteId && active.accountId === accountId) {
+      configStore.setActiveState(null, null);
+    }
+
+    // Remove from config
+    configStore.removeAccount(siteId, accountId);
+
+    return { success: true };
+  });
 
   ipcMain.handle('site:getActiveState', () => configStore.getActiveState());
 

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteSite: (id) => ipcRenderer.invoke('site:delete', id),
   switchSite: (siteId, accountId) => ipcRenderer.invoke('site:switch', siteId, accountId),
   addAccount: (siteId, account) => ipcRenderer.invoke('site:addAccount', siteId, account),
+  removeAccount: (siteId, accountId) => ipcRenderer.invoke('site:removeAccount', siteId, accountId),
 
   // Proxy
   setProxy: (siteId, proxy) => ipcRenderer.invoke('proxy:set', siteId, proxy),

@@ -7,8 +7,13 @@ class Sidebar {
     this.expandedSites = new Set();
     this.badges = new Map();
     this.hibernatedKeys = new Set();
+    this.toolbar = null;
 
     this.init();
+  }
+
+  setToolbar(toolbar) {
+    this.toolbar = toolbar;
   }
 
   async init() {
@@ -162,6 +167,19 @@ class Sidebar {
         accountBtn.appendChild(dot);
         accountBtn.appendChild(label);
 
+        // Add remove button for non-default accounts
+        if (!account.isDefault && site.accounts.length > 1) {
+          const removeBtn = document.createElement('span');
+          removeBtn.className = 'account-remove';
+          removeBtn.textContent = '×';
+          removeBtn.title = '删除账号';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeAccount(site.id, account.id);
+          });
+          accountBtn.appendChild(removeBtn);
+        }
+
         accountBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           this.selectSite(site.id, account.id);
@@ -198,6 +216,15 @@ class Sidebar {
     this.activeSiteId = siteId;
     this.activeAccountId = accountId;
     this.render();
+
+    // Update toolbar URL
+    if (this.toolbar) {
+      const site = this.sites.find(s => s.id === siteId);
+      if (site) {
+        this.toolbar.setUrl(site.url);
+      }
+    }
+
     await window.api.switchSite(siteId, accountId);
   }
 
@@ -210,6 +237,29 @@ class Sidebar {
     await window.api.addAccount(siteId, { id: accountId, label });
     await this.loadSites();
     this.render();
+  }
+
+  async removeAccount(siteId, accountId) {
+    const site = this.sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    const account = site.accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    if (site.accounts.length <= 1) {
+      alert('不能删除最后一个账号，请直接删除站点。');
+      return;
+    }
+
+    if (!confirm(`确定要删除账号 "${account.label}" 吗？`)) return;
+
+    try {
+      await window.api.removeAccount(siteId, accountId);
+      await this.loadSites();
+      this.render();
+    } catch (err) {
+      alert('删除账号失败: ' + err.message);
+    }
   }
 
   isHibernated(siteId, accountId) {

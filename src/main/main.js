@@ -5,6 +5,7 @@ const configStore = require('./config-store');
 const ViewManager = require('./view-manager');
 const HibernationManager = require('./hibernation-manager');
 const TrayManager = require('./tray-manager');
+const { setupContextMenu } = require('./context-menu');
 
 let mainWindow;
 let viewManager;
@@ -175,6 +176,9 @@ function createWindow() {
     }
     return { success: true };
   });
+
+  // Context menu for main window
+  setupContextMenu(mainWindow.webContents, () => mainWindow);
 }
 
 app.whenReady().then(() => {

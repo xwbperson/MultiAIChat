@@ -1,6 +1,7 @@
 const { WebContentsView } = require('electron');
 const path = require('path');
 const { getSession, setProxy } = require('./session-manager');
+const { setupContextMenu } = require('./context-menu');
 
 class ViewManager {
   constructor(mainWindow) {
@@ -38,6 +39,9 @@ class ViewManager {
     this.mainWindow.contentView.addChildView(view);
     this.updateViewBounds(view);
     view.webContents.loadURL(site.url);
+
+    // Context menu for webview
+    setupContextMenu(view.webContents, () => this.mainWindow);
 
     const viewData = {
       view,

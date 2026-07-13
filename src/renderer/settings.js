@@ -82,9 +82,9 @@ class SettingsPanel {
           <section class="settings-section">
             <h3>数据</h3>
             <div class="setting-actions">
-              <button id="btn-export" class="settings-action-btn">导出配置</button>
-              <button id="btn-import" class="settings-action-btn">导入配置</button>
-              <button id="btn-clear-data" class="settings-action-btn danger">清除全部站点数据</button>
+              <button id="btn-export" class="settings-action-btn" aria-label="导出配置到文件">导出配置</button>
+              <button id="btn-import" class="settings-action-btn" aria-label="从文件导入配置">导入配置</button>
+              <button id="btn-clear-data" class="settings-action-btn danger" aria-label="清除全部站点数据">清除全部站点数据</button>
             </div>
           </section>
         </div>

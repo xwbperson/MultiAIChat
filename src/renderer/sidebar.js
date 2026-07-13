@@ -61,6 +61,8 @@ class Sidebar {
     const btn = document.createElement('button');
     btn.className = `site-btn ${isActive ? 'active' : ''}`;
     btn.title = site.name;
+    btn.setAttribute('aria-label', `切换到 ${site.name}`);
+    btn.setAttribute('role', 'button');
 
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'site-icon-wrapper';
@@ -156,6 +158,7 @@ class Sidebar {
       site.accounts.forEach(account => {
         const accountBtn = document.createElement('button');
         accountBtn.className = `account-btn ${account.id === this.activeAccountId ? 'active' : ''}`;
+        accountBtn.setAttribute('aria-label', `切换到 ${site.name} - ${account.label}`);
 
         const dot = document.createElement('span');
         dot.className = `account-dot ${this.isHibernated(site.id, account.id) ? 'hibernated' : ''}`;
@@ -169,10 +172,11 @@ class Sidebar {
 
         // Add remove button for non-default accounts
         if (!account.isDefault && site.accounts.length > 1) {
-          const removeBtn = document.createElement('span');
+          const removeBtn = document.createElement('button');
           removeBtn.className = 'account-remove';
           removeBtn.textContent = '×';
           removeBtn.title = '删除账号';
+          removeBtn.setAttribute('aria-label', `删除 ${account.label}`);
           removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.removeAccount(site.id, account.id);

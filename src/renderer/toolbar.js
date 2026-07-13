@@ -13,20 +13,20 @@ class Toolbar {
   render() {
     this.container.innerHTML = `
       <div class="toolbar-nav">
-        <button id="btn-back" class="toolbar-btn" title="后退 (Alt+←)">←</button>
-        <button id="btn-forward" class="toolbar-btn" title="前进 (Alt+→)">→</button>
-        <button id="btn-refresh" class="toolbar-btn" title="刷新 (F5)">↻</button>
+        <button id="btn-back" class="toolbar-btn" title="后退 (Alt+←)" aria-label="后退">←</button>
+        <button id="btn-forward" class="toolbar-btn" title="前进 (Alt+→)" aria-label="前进">→</button>
+        <button id="btn-refresh" class="toolbar-btn" title="刷新 (F5)" aria-label="刷新">↻</button>
       </div>
       <div class="toolbar-separator"></div>
-      <div class="toolbar-url" id="toolbar-url" title="点击复制">
+      <div class="toolbar-url" id="toolbar-url" title="点击复制" role="button" tabindex="0">
         <span id="url-text">AI Workspace</span>
       </div>
       <div class="toolbar-separator"></div>
       <div class="toolbar-zoom">
-        <button id="btn-zoom-out" class="toolbar-btn" title="缩小 (Ctrl+-)">−</button>
-        <span id="zoom-level" class="zoom-level">100%</span>
-        <button id="btn-zoom-in" class="toolbar-btn" title="放大 (Ctrl++)">+</button>
-        <button id="btn-zoom-reset" class="toolbar-btn" title="重置 (Ctrl+0)">⟲</button>
+        <button id="btn-zoom-out" class="toolbar-btn" title="缩小 (Ctrl+-)" aria-label="缩小">−</button>
+        <span id="zoom-level" class="zoom-level" role="status">100%</span>
+        <button id="btn-zoom-in" class="toolbar-btn" title="放大 (Ctrl++)" aria-label="放大">+</button>
+        <button id="btn-zoom-reset" class="toolbar-btn" title="重置 (Ctrl+0)" aria-label="重置缩放">⟲</button>
       </div>
     `;
   }

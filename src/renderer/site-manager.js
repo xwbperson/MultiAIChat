@@ -61,12 +61,12 @@ class SiteManager {
     container.innerHTML = sites.map((site, index) => `
       <div class="site-card" data-site-id="${site.id}" data-index="${index}" draggable="true">
         <div class="site-card-header">
-          <span class="site-card-drag-handle" title="拖拽排序">⠿</span>
-          <span class="site-card-icon">${site.icon}</span>
+          <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${site.name}">⠿</span>
+          <span class="site-card-icon" aria-hidden="true">${site.icon}</span>
           <span class="site-card-name">${site.name}</span>
           <div class="site-card-actions">
-            <button class="site-edit-btn" data-site-id="${site.id}">✎</button>
-            <button class="site-delete-btn" data-site-id="${site.id}">🗑</button>
+            <button class="site-edit-btn" data-site-id="${site.id}" aria-label="编辑 ${site.name}">✎</button>
+            <button class="site-delete-btn" data-site-id="${site.id}" aria-label="删除 ${site.name}">🗑</button>
           </div>
         </div>
         <div class="site-card-details">
@@ -84,8 +84,8 @@ class SiteManager {
               ${site.accounts.map(acc => `
                 <span class="account-tag ${acc.isDefault ? 'default' : ''}">
                   <span class="account-label-text">${acc.label}</span>
-                  <button class="rename-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" data-label="${acc.label}" title="重命名">✎</button>
-                  ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" title="删除账号">×</button>` : ''}
+                  <button class="rename-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" data-label="${acc.label}" title="重命名" aria-label="重命名 ${acc.label}">✎</button>
+                  ${!acc.isDefault ? `<button class="remove-account-btn" data-site-id="${site.id}" data-account-id="${acc.id}" title="删除账号" aria-label="删除 ${acc.label}">×</button>` : ''}
                 </span>
               `).join('')}
               <button class="add-account-btn" data-site-id="${site.id}">+ 添加</button>
@@ -130,6 +130,7 @@ class SiteManager {
     let draggedSiteId = null;
 
     container.querySelectorAll('.site-card').forEach(card => {
+      // Mouse drag support
       card.addEventListener('dragstart', (e) => {
         draggedCard = card;
         draggedSiteId = card.dataset.siteId;
@@ -142,7 +143,6 @@ class SiteManager {
         card.classList.remove('dragging');
         draggedCard = null;
         draggedSiteId = null;
-        // Remove all drag-over classes
         container.querySelectorAll('.site-card').forEach(c => c.classList.remove('drag-over'));
       });
 
@@ -170,25 +170,63 @@ class SiteManager {
 
         if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Reorder sites
         const [dragged] = sites.splice(draggedIndex, 1);
         sites.splice(targetIndex, 0, dragged);
 
-        // Update order in config
         for (let i = 0; i < sites.length; i++) {
           await window.api.updateSite(sites[i].id, { order: i });
         }
 
-        // Re-render the list
         await this.renderSiteList();
-
-        // Also update sidebar
         if (this.sidebar) {
           await this.sidebar.loadSites();
           this.sidebar.render();
         }
       });
+
+      // Keyboard support for drag handle
+      const dragHandle = card.querySelector('.site-card-drag-handle');
+      if (dragHandle) {
+        dragHandle.addEventListener('keydown', async (e) => {
+          const siteId = card.dataset.siteId;
+          const sites = await window.api.getSites();
+          const currentIndex = sites.findIndex(s => s.id === siteId);
+
+          if (e.key === 'ArrowUp' && currentIndex > 0) {
+            e.preventDefault();
+            // Swap with previous
+            [sites[currentIndex - 1], sites[currentIndex]] = [sites[currentIndex], sites[currentIndex - 1]];
+            await this.updateSiteOrder(sites);
+            // Focus the moved item
+            setTimeout(() => {
+              const handles = container.querySelectorAll('.site-card-drag-handle');
+              if (handles[currentIndex - 1]) handles[currentIndex - 1].focus();
+            }, 50);
+          } else if (e.key === 'ArrowDown' && currentIndex < sites.length - 1) {
+            e.preventDefault();
+            // Swap with next
+            [sites[currentIndex], sites[currentIndex + 1]] = [sites[currentIndex + 1], sites[currentIndex]];
+            await this.updateSiteOrder(sites);
+            // Focus the moved item
+            setTimeout(() => {
+              const handles = container.querySelectorAll('.site-card-drag-handle');
+              if (handles[currentIndex + 1]) handles[currentIndex + 1].focus();
+            }, 50);
+          }
+        });
+      }
     });
+  }
+
+  async updateSiteOrder(sites) {
+    for (let i = 0; i < sites.length; i++) {
+      await window.api.updateSite(sites[i].id, { order: i });
+    }
+    await this.renderSiteList();
+    if (this.sidebar) {
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    }
   }
 
   showAddSite() {

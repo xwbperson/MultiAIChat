@@ -6,6 +6,7 @@ const ViewManager = require('./view-manager');
 const HibernationManager = require('./hibernation-manager');
 const TrayManager = require('./tray-manager');
 const { setupContextMenu } = require('./context-menu');
+const { clearSessionData } = require('./session-manager');
 
 let mainWindow;
 let viewManager;
@@ -128,7 +129,6 @@ function createWindow() {
     if (!site) throw new Error(`Site not found: ${id}`);
 
     // Clean up session data for all accounts
-    const { clearSessionData } = require('./session-manager');
     for (const account of site.accounts) {
       try {
         await clearSessionData(account.partition);
@@ -155,7 +155,6 @@ function createWindow() {
   });
   ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
   ipcMain.handle('site:removeAccount', async (e, siteId, accountId) => {
-    const { clearSessionData } = require('./session-manager');
     const sites = configStore.getSites();
     const site = sites.find(s => s.id === siteId);
     if (!site) throw new Error(`Site not found: ${siteId}`);
@@ -202,7 +201,6 @@ function createWindow() {
   ipcMain.handle('config:export', () => configStore.exportConfig());
   ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
   ipcMain.handle('config:clearAllSiteData', async () => {
-    const { clearSessionData } = require('./session-manager');
     const sites = configStore.getSites();
 
     // Clear all session data first

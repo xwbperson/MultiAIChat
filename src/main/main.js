@@ -12,6 +12,13 @@ let viewManager;
 let hibernationManager;
 let trayManager;
 
+function setAutoLaunch(enable) {
+  app.setLoginItemSettings({
+    openAtLogin: enable,
+    path: app.getPath('exe')
+  });
+}
+
 function registerShortcuts() {
   const settings = configStore.getSettings();
 
@@ -106,6 +113,11 @@ function createWindow() {
   ipcMain.handle('settings:get', () => configStore.getSettings());
   ipcMain.handle('settings:update', (e, settings) => {
     configStore.updateSettings(settings);
+
+    if (settings.autoLaunch !== undefined) {
+      setAutoLaunch(settings.autoLaunch);
+    }
+
     globalShortcut.unregisterAll();
     registerShortcuts();
   });
@@ -182,6 +194,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  const settings = configStore.getSettings();
+  if (settings.autoLaunch) {
+    setAutoLaunch(true);
+  }
+
   createWindow();
   trayManager = new TrayManager(mainWindow, configStore);
   registerShortcuts();

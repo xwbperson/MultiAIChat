@@ -481,7 +481,7 @@ html, body {
 
 .settings-panel {
   width: 500px;
-  max-height: 80vh;
+  max-height: calc(100vh - 32px);
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -521,7 +521,9 @@ html, body {
 
 .settings-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 16px 20px;
 }
 

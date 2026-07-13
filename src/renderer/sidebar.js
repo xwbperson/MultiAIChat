@@ -289,12 +289,22 @@ class Sidebar {
   }
 
   async addAccount(siteId) {
-    const label = prompt('请输入账号名称:');
+    const label = await window.dialogs.requestText({
+      dialogId: 'sidebar-account-name',
+      title: '添加账号',
+      label: '账号名称',
+      confirmLabel: '添加'
+    });
     if (!label) return;
 
-    await window.api.addAccount(siteId, { label });
-    await this.loadSites();
-    this.render();
+    try {
+      await window.api.addAccount(siteId, { label });
+      await this.loadSites();
+      this.expandedSites.add(siteId);
+      this.render();
+    } catch (err) {
+      alert('添加账号失败: ' + err.message);
+    }
   }
 
   async removeAccount(siteId, accountId) {

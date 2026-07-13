@@ -65,13 +65,14 @@ npm run build
 npm run dev
 ```
 
-`npm run check` 会检查全部 JavaScript 文件并运行 Node.js 单元测试。`npm run build` 会先生成应用图标，再在 `dist/` 中创建 Windows x64 NSIS 安装包。
+`npm run check` 会执行 JavaScript 语法检查、Node.js 单元测试和隔离用户目录下的 Electron UI 回归测试。`npm run build` 会先生成应用图标，再在 `dist/` 中创建 Windows x64 NSIS 安装包。
 
 主要代码位于以下目录：
 
 - `src/main/`：窗口、WebContentsView、Session、代理、休眠、配置和 IPC。
 - `src/renderer/`：侧栏、工具栏、设置、站点管理和界面样式。
-- `test/`：配置仓库、会话代理、LRU、快捷键和休眠恢复测试。
+- `test/`：配置仓库、会话代理、LRU、快捷键和休眠恢复单元测试。
+- `scripts/renderer-ui-check.cjs`：设置滚动、站点编辑和账号操作的 Electron UI 回归测试。
 - `docs/`：设计说明、功能完成情况和实现计划。
 
 ## 数据与隐私

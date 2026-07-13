@@ -192,5 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (settingsPanel.isOpen) settingsPanel.close();
       if (siteManager.isOpen) siteManager.close();
     }
+
+    // Ctrl+Q: Force quit
+    if (e.ctrlKey && e.key === 'q') {
+      e.preventDefault();
+      window.api.forceQuit();
+    }
   });
 });

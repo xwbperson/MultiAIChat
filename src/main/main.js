@@ -92,6 +92,12 @@ function createWindow() {
     return mainWindow.isMaximized();
   });
   ipcMain.handle('window:close', () => mainWindow.close());
+  ipcMain.handle('window:forceQuit', () => {
+    if (trayManager) {
+      trayManager.isQuitting = true;
+    }
+    app.quit();
+  });
   ipcMain.handle('window:isMaximized', () => mainWindow.isMaximized());
 
   mainWindow.on('maximize', () => {

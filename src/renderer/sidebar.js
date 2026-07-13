@@ -276,7 +276,7 @@ class Sidebar {
       this.activeSiteId = previous.siteId;
       this.activeAccountId = previous.accountId;
       this.render();
-      alert('切换站点失败: ' + error.message);
+      await window.dialogs.showMessage('切换站点失败: ' + error.message);
     }
   }
 
@@ -301,7 +301,7 @@ class Sidebar {
       this.expandedSites.add(siteId);
       this.render();
     } catch (err) {
-      alert('添加账号失败: ' + err.message);
+      await window.dialogs.showMessage('添加账号失败: ' + err.message);
     }
   }
 
@@ -313,18 +313,22 @@ class Sidebar {
     if (!account) return;
 
     if (site.accounts.length <= 1) {
-      alert('不能删除最后一个账号，请直接删除站点。');
+      await window.dialogs.showMessage('不能删除最后一个账号，请直接删除站点。');
       return;
     }
 
-    if (!confirm(`确定要删除账号 "${account.label}" 吗？`)) return;
+    const confirmed = await window.dialogs.confirmAction(
+      `确定要删除账号 "${account.label}" 吗？`,
+      { title: '删除账号', confirmLabel: '删除', danger: true }
+    );
+    if (!confirmed) return;
 
     try {
       await window.api.removeAccount(siteId, accountId);
       await this.loadSites();
       this.render();
     } catch (err) {
-      alert('删除账号失败: ' + err.message);
+      await window.dialogs.showMessage('删除账号失败: ' + err.message);
     }
   }
 

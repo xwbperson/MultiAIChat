@@ -315,7 +315,7 @@ class SiteManager {
       try {
         await this.updateSiteOrder(orderedSiteIds);
       } catch (err) {
-        alert('排序保存失败: ' + err.message);
+        await window.dialogs.showMessage('排序保存失败: ' + err.message);
         await this.renderSiteList();
       }
     }, { signal });
@@ -468,7 +468,7 @@ class SiteManager {
     dialog.querySelector('#add-detect-favicon').addEventListener('click', async () => {
       const url = dialog.querySelector('#add-url').value;
       if (!url || url === 'https://') {
-        alert('请先输入站点 URL');
+        await window.dialogs.showMessage('请先输入站点 URL');
         return;
       }
 
@@ -485,7 +485,7 @@ class SiteManager {
           <span class="favicon-status">已设置 (Google Favicon)</span>
         `;
       } catch (err) {
-        alert('URL 格式错误');
+        await window.dialogs.showMessage('URL 格式错误');
       }
     });
 
@@ -507,7 +507,8 @@ class SiteManager {
     });
 
     // Save
-    dialog.querySelector('#add-save').addEventListener('click', async () => {
+    const saveButton = dialog.querySelector('#add-save');
+    saveButton.addEventListener('click', async () => {
       const name = dialog.querySelector('#add-name').value.trim();
       const url = dialog.querySelector('#add-url').value.trim();
       const iconValue = dialog.querySelector('#add-icon').value.trim() || '🌐';
@@ -519,15 +520,18 @@ class SiteManager {
       else if (proxyMode === 'custom') proxy = dialog.querySelector('#add-proxy').value.trim();
 
       if (!name) {
-        alert('请输入站点名称');
+        await window.dialogs.showMessage('请输入站点名称');
         return;
       }
       if (!url || url === 'https://') {
-        alert('请输入有效的站点 URL');
+        await window.dialogs.showMessage('请输入有效的站点 URL');
         return;
       }
 
       const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
+      if (saveButton.disabled) return;
+      saveButton.disabled = true;
+      saveButton.textContent = '添加中...';
 
       try {
         // Add site first to get the ID
@@ -541,25 +545,37 @@ class SiteManager {
           proxy
         });
 
-        // If icon is a URL, fetch and save locally
-        if (isUrl && newSite?.id) {
-          const result = await window.api.fetchFavicon(iconValue, newSite.id, proxy);
-          if (result.success) {
-            await window.api.updateSite(newSite.id, {
-              faviconUrl: result.localUrl,
-              faviconSourceUrl: iconValue
-            });
-          }
-        }
-
         closeDialog();
         await this.renderSiteList();
         await this.sidebar.loadSites();
         this.sidebar.render();
+
+        // The site is usable immediately. Cache its icon without keeping the dialog open.
+        if (isUrl && newSite?.id) {
+          this.cacheSiteFavicon(iconValue, newSite.id, proxy);
+        }
       } catch (err) {
-        alert('添加失败: ' + err.message);
+        saveButton.disabled = false;
+        saveButton.textContent = '添加';
+        await window.dialogs.showMessage('添加失败: ' + err.message);
       }
     });
+  }
+
+  async cacheSiteFavicon(sourceUrl, siteId, proxy) {
+    try {
+      const result = await window.api.fetchFavicon(sourceUrl, siteId, proxy);
+      if (!result.success) return;
+      await window.api.updateSite(siteId, {
+        faviconUrl: result.localUrl,
+        faviconSourceUrl: sourceUrl
+      });
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+      if (this.isOpen) await this.renderSiteList();
+    } catch {
+      // The remote source remains saved so the main process can retry later.
+    }
   }
 
   async showEditSite(siteId) {
@@ -625,7 +641,7 @@ class SiteManager {
     dialog.querySelector('#edit-detect-favicon').addEventListener('click', async () => {
       const url = dialog.querySelector('#edit-url').value;
       if (!url) {
-        alert('请先输入站点 URL');
+        await window.dialogs.showMessage('请先输入站点 URL');
         return;
       }
 
@@ -643,7 +659,7 @@ class SiteManager {
           <span class="favicon-status">已设置 (Google Favicon)</span>
         `;
       } catch (err) {
-        alert('URL 格式错误');
+        await window.dialogs.showMessage('URL 格式错误');
       }
     });
 
@@ -703,7 +719,7 @@ class SiteManager {
         await this.sidebar.loadSites();
         this.sidebar.render();
       } catch (err) {
-        alert('保存失败: ' + err.message);
+        await window.dialogs.showMessage('保存失败: ' + err.message);
       }
     });
   }
@@ -716,7 +732,12 @@ class SiteManager {
     const accountCount = site.accounts.length;
     const message = `确定要删除 "${site.name}" 吗？\n\n将删除 ${accountCount} 个账号的所有数据（Cookie、缓存等），此操作不可撤销。`;
 
-    if (!confirm(message)) return;
+    const confirmed = await window.dialogs.confirmAction(message, {
+      title: '删除站点',
+      confirmLabel: '删除',
+      danger: true
+    });
+    if (!confirmed) return;
 
     try {
       await window.api.deleteSite(siteId);
@@ -724,7 +745,7 @@ class SiteManager {
       await this.sidebar.loadSites();
       this.sidebar.render();
     } catch (err) {
-      alert('删除失败: ' + err.message);
+      await window.dialogs.showMessage('删除失败: ' + err.message);
     }
   }
 
@@ -743,7 +764,7 @@ class SiteManager {
       await this.sidebar.loadSites();
       this.sidebar.render();
     } catch (err) {
-      alert('添加账号失败: ' + err.message);
+      await window.dialogs.showMessage('添加账号失败: ' + err.message);
     }
   }
 
@@ -756,11 +777,15 @@ class SiteManager {
     if (!account) return;
 
     if (site.accounts.length <= 1) {
-      alert('不能删除最后一个账号，请直接删除站点。');
+      await window.dialogs.showMessage('不能删除最后一个账号，请直接删除站点。');
       return;
     }
 
-    if (!confirm(`确定要删除账号 "${account.label}" 吗？该账号的所有数据将被清除。`)) return;
+    const confirmed = await window.dialogs.confirmAction(
+      `确定要删除账号 "${account.label}" 吗？该账号的所有数据将被清除。`,
+      { title: '删除账号', confirmLabel: '删除', danger: true }
+    );
+    if (!confirmed) return;
 
     try {
       await window.api.removeAccount(siteId, accountId);
@@ -768,7 +793,7 @@ class SiteManager {
       await this.sidebar.loadSites();
       this.sidebar.render();
     } catch (err) {
-      alert('删除账号失败: ' + err.message);
+      await window.dialogs.showMessage('删除账号失败: ' + err.message);
     }
   }
 
@@ -788,7 +813,7 @@ class SiteManager {
       await this.sidebar.loadSites();
       this.sidebar.render();
     } catch (err) {
-      alert('重命名失败: ' + err.message);
+      await window.dialogs.showMessage('重命名失败: ' + err.message);
     }
   }
 
@@ -908,7 +933,7 @@ class SiteManager {
         closeDialog();
         await this.renderSiteList();
       } catch (err) {
-        alert('保存失败: ' + err.message);
+        await window.dialogs.showMessage('保存失败: ' + err.message);
       }
     });
   }
@@ -918,7 +943,7 @@ class SiteManager {
       await window.api.updateSite(siteId, { shortcut: null });
       await this.renderSiteList();
     } catch (err) {
-      alert('删除快捷键失败: ' + err.message);
+      await window.dialogs.showMessage('删除快捷键失败: ' + err.message);
     }
   }
 }

@@ -152,14 +152,18 @@ class SettingsPanel {
           await this.refreshSites();
           this.showToast(`已合并导入 ${importCount} 个站点配置（同 ID 更新，已有账号保留）`);
         } catch (err) {
-          alert('导入失败: ' + err.message);
+          await window.dialogs.showMessage('导入失败: ' + err.message);
         }
       };
       input.click();
     });
 
     document.getElementById('btn-clear-data').addEventListener('click', async () => {
-      if (!confirm('确定要清除全部站点数据吗？此操作不可撤销。')) return;
+      const confirmed = await window.dialogs.confirmAction(
+        '确定要清除全部站点数据吗？此操作不可撤销。',
+        { title: '清除全部数据', confirmLabel: '清除', danger: true }
+      );
+      if (!confirmed) return;
       try {
         await window.api.clearAllSiteData();
         this.sidebar?.badges.clear();
@@ -167,7 +171,7 @@ class SettingsPanel {
         await this.refreshSites();
         this.showToast('站点配置和账号数据已清除');
       } catch (err) {
-        alert('清除失败: ' + err.message);
+        await window.dialogs.showMessage('清除失败: ' + err.message);
       }
     });
 

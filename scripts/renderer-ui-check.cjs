@@ -1,4 +1,5 @@
 const path = require('node:path');
+const { createServer } = require('node:http');
 const { mkdtempSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { _electron } = require('playwright-core');
@@ -10,8 +11,27 @@ async function main() {
   const userDataDirectory = mkdtempSync(path.join(tmpdir(), 'multi-ai-chat-ui-'));
   const consoleErrors = [];
   let electronApp;
+  let faviconServer;
+  let faviconSourceUrl;
+  let faviconResponses = 0;
 
   try {
+    if (selectedCase === 'all' || selectedCase === 'site-submit') {
+      faviconServer = createServer((request, response) => {
+        setTimeout(() => {
+          response.writeHead(200, { 'Content-Type': 'image/png' });
+          response.end(Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            'base64'
+          ));
+          faviconResponses += 1;
+        }, 1500);
+      });
+      await new Promise(resolve => faviconServer.listen(0, '127.0.0.1', resolve));
+      const address = faviconServer.address();
+      faviconSourceUrl = `http://127.0.0.1:${address.port}/favicon.png`;
+    }
+
     electronApp = await _electron.launch({
       cwd,
       executablePath,
@@ -265,6 +285,83 @@ async function main() {
         || !result.sidebarAccountCreated;
     }
 
+    if (selectedCase === 'all' || selectedCase === 'app-dialogs') {
+      const nativeDialogs = [];
+      const onNativeDialog = async dialog => {
+        nativeDialogs.push(dialog.type());
+        await dialog.dismiss();
+      };
+      page.on('dialog', onNativeDialog);
+
+      await page.locator('button[aria-label="打开站点管理"]').click();
+      await page.locator('#site-manager-overlay:not(.hidden)').waitFor();
+      await page.locator('#btn-add-site').click();
+      await page.locator('#add-save').click();
+      await page.waitForTimeout(100);
+      result.inAppAlertVisible = await page.locator('[data-dialog="alert"]').count() === 1;
+      if (result.inAppAlertVisible) {
+        await page.locator('[data-dialog="alert"] [data-action="confirm"]').click();
+        result.alertRestoredFocus = await page.locator('#add-save').evaluate(button => (
+          document.activeElement === button
+        ));
+      } else {
+        result.alertRestoredFocus = false;
+      }
+      await page.locator('#add-cancel').click();
+
+      await page.locator('.site-delete-btn').first().click();
+      await page.waitForTimeout(100);
+      result.inAppConfirmVisible = await page.locator('[data-dialog="confirm"]').count() === 1;
+      if (result.inAppConfirmVisible) {
+        await page.locator('[data-dialog="confirm"] [data-action="cancel"]').click();
+        result.confirmRestoredFocus = await page.locator('.site-delete-btn').first().evaluate(button => (
+          document.activeElement === button
+        ));
+      } else {
+        result.confirmRestoredFocus = false;
+      }
+
+      page.off('dialog', onNativeDialog);
+      result.nativeDialogsOpened = nativeDialogs;
+      result.usesOnlyInAppDialogs = nativeDialogs.length === 0;
+      failed ||= !result.inAppAlertVisible
+        || !result.inAppConfirmVisible
+        || !result.alertRestoredFocus
+        || !result.confirmRestoredFocus
+        || !result.usesOnlyInAppDialogs;
+      await page.locator('#site-manager-close').click();
+    }
+
+    if (selectedCase === 'all' || selectedCase === 'site-submit') {
+      await page.locator('button[aria-label="打开站点管理"]').click();
+      await page.locator('#site-manager-overlay:not(.hidden)').waitFor();
+      await page.locator('#btn-add-site').click();
+      await page.locator('#add-name').fill('重复提交回归站点');
+      await page.locator('#add-url').fill('https://duplicate-submit.example');
+      await page.locator('#add-icon').fill(faviconSourceUrl);
+
+      await page.locator('#add-save').evaluate(button => {
+        button.click();
+        button.click();
+        button.click();
+      });
+      await page.waitForFunction(async () => (
+        (await window.api.getSites()).some(site => site.name === '重复提交回归站点')
+      ));
+      await page.waitForTimeout(200);
+
+      const matchingSites = await page.evaluate(async () => (
+        (await window.api.getSites()).filter(site => site.name === '重复提交回归站点')
+      ));
+      result.siteSubmitCreatedCount = matchingSites.length;
+      result.siteSubmitCreatesOnlyOnce = matchingSites.length === 1;
+      result.siteSubmitDialogClosedPromptly = (
+        await page.locator('.edit-dialog-overlay').count() === 0
+        && faviconResponses === 0
+      );
+      failed ||= !result.siteSubmitCreatesOnlyOnce || !result.siteSubmitDialogClosedPromptly;
+    }
+
     result.applicationErrors = consoleErrors.filter(message => (
       !message.startsWith('Failed to load resource:')
     ));
@@ -274,6 +371,7 @@ async function main() {
     if (failed) process.exitCode = 1;
   } finally {
     if (electronApp) await electronApp.close();
+    if (faviconServer) await new Promise(resolve => faviconServer.close(resolve));
     rmSync(userDataDirectory, { recursive: true, force: true });
   }
 }

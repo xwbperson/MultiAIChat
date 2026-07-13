@@ -145,8 +145,11 @@ function importConfig(jsonString) {
   const data = JSON.parse(jsonString);
 
   if (data.sites) {
-    const importedSites = data.sites.map(site => {
-      // If site has no accounts (new export format), create default account
+    const existingSites = getSites();
+    const importedSites = data.sites;
+
+    // Process imported sites - add accounts if missing
+    const processedImports = importedSites.map(site => {
       if (!site.accounts || site.accounts.length === 0) {
         const accountLabels = site.accountLabels || ['默认'];
         const accounts = accountLabels.map((label, index) => ({
@@ -159,7 +162,39 @@ function importConfig(jsonString) {
       }
       return site;
     });
-    configStore.set('sites', importedSites);
+
+    // Merge strategy:
+    // 1. Same ID -> update with imported data
+    // 2. Only in import -> add new site
+    // 3. Only in current -> keep unchanged
+    const mergedSites = [];
+    const existingIds = new Set(existingSites.map(s => s.id));
+    const importedIds = new Set(processedImports.map(s => s.id));
+
+    // Add all existing sites, update if ID matches import
+    for (const existing of existingSites) {
+      const imported = processedImports.find(s => s.id === existing.id);
+      if (imported) {
+        // Merge: keep existing accounts, update other fields
+        mergedSites.push({
+          ...imported,
+          accounts: existing.accounts, // Preserve existing account sessions
+          order: existing.order // Preserve current order
+        });
+      } else {
+        // Keep existing site unchanged
+        mergedSites.push(existing);
+      }
+    }
+
+    // Add new sites from import that don't exist in current
+    for (const imported of processedImports) {
+      if (!existingIds.has(imported.id)) {
+        mergedSites.push(imported);
+      }
+    }
+
+    configStore.set('sites', mergedSites);
   }
 
   if (data.settings) {

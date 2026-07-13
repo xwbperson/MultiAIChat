@@ -138,11 +138,11 @@ class SettingsPanel {
         const text = await file.text();
         try {
           const data = JSON.parse(text);
-          const siteCount = data.sites?.length || 0;
+          const importCount = data.sites?.length || 0;
           await window.api.importConfig(text);
           this.settings = await window.api.getSettings();
           this.loadSettings();
-          this.showToast(`已导入 ${siteCount} 个站点配置，请重新打开站点管理查看`);
+          this.showToast(`已合并导入 ${importCount} 个站点配置（同名覆盖，新增增量，已有保留）`);
         } catch (err) {
           alert('导入失败: ' + err.message);
         }

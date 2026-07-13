@@ -57,6 +57,49 @@ test('new accounts receive unique ids and matching persistent partitions', () =>
   assert.equal(work.partition, `persist:${work.id}`);
 });
 
+test('site reorder persists the requested sequence in one repository operation', () => {
+  const repository = createRepository();
+  const first = repository.addSite({ name: 'First', url: 'https://first.example' });
+  const second = repository.addSite({ name: 'Second', url: 'https://second.example' });
+  const third = repository.addSite({ name: 'Third', url: 'https://third.example' });
+
+  const reordered = repository.reorderSites([third.id, first.id, second.id]);
+
+  assert.deepEqual(reordered.map(site => site.name), ['Third', 'First', 'Second']);
+  assert.deepEqual(reordered.map(site => site.order), [0, 1, 2]);
+  assert.deepEqual(repository.getSites(), reordered);
+});
+
+test('site reorder rejects incomplete sequences without changing configuration', () => {
+  const repository = createRepository();
+  const first = repository.addSite({ name: 'First', url: 'https://first.example' });
+  const second = repository.addSite({ name: 'Second', url: 'https://second.example' });
+  const original = repository.getSites();
+
+  assert.throws(
+    () => repository.reorderSites([first.id, first.id]),
+    /every site exactly once/i
+  );
+  assert.throws(
+    () => repository.reorderSites([first.id, 'missing-site']),
+    /unknown site/i
+  );
+  assert.deepEqual(repository.getSites(), original);
+  assert.equal(second.order, 1);
+});
+
+test('individual site updates cannot create a partial site order', () => {
+  const repository = createRepository();
+  const first = repository.addSite({ name: 'First', url: 'https://first.example' });
+  repository.addSite({ name: 'Second', url: 'https://second.example' });
+
+  assert.throws(
+    () => repository.updateSite(first.id, { order: 1 }),
+    /unsupported site field/i
+  );
+  assert.deepEqual(repository.getSites().map(site => site.order), [0, 1]);
+});
+
 test('sites reject non-web URLs before they reach Electron', () => {
   const repository = createRepository();
 

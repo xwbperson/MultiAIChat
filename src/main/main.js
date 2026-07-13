@@ -231,6 +231,7 @@ function createWindow() {
   // Config store IPC handlers
   ipcMain.handle('site:getAll', () => configStore.getSites());
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
+  ipcMain.handle('site:reorder', (e, siteIds) => configStore.reorderSites(siteIds));
   ipcMain.handle('site:update', async (e, id, data) => {
     const site = configStore.updateSite(id, data);
     if (Object.hasOwn(data, 'proxy')) {

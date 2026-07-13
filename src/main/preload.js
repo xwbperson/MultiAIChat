@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   getSites: () => ipcRenderer.invoke('site:getAll'),
   getActiveState: () => ipcRenderer.invoke('site:getActiveState'),
   addSite: (site) => ipcRenderer.invoke('site:add', site),
+  reorderSites: (siteIds) => ipcRenderer.invoke('site:reorder', siteIds),
   updateSite: (id, data) => ipcRenderer.invoke('site:update', id, data),
   deleteSite: (id) => ipcRenderer.invoke('site:delete', id),
   switchSite: (siteId, accountId) => ipcRenderer.invoke('site:switch', siteId, accountId),

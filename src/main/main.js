@@ -363,6 +363,10 @@ function createWindow() {
     }
   });
 
+  ipcMain.handle('favicon:getGoogleUrl', (e, domain) => {
+    return faviconManager.getGoogleFaviconUrl(domain);
+  });
+
   // Context menu for main window
   setupContextMenu(mainWindow.webContents, () => mainWindow);
 

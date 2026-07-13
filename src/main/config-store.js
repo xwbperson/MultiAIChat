@@ -22,16 +22,16 @@ const configStore = new Store({
   }
 });
 
-// Migration: Update existing sites with favicon URLs from defaults
+// Migration: Set favicon URLs for sites that don't have one
 function migrateFaviconUrls() {
   const sites = getSites();
   let updated = false;
 
   for (const site of sites) {
-    const defaultSite = DEFAULT_SITES.find(d => d.id === site.id);
-    if (defaultSite) {
-      // Always update default sites with latest favicon URLs
-      if (defaultSite.faviconUrl && site.faviconUrl !== defaultSite.faviconUrl) {
+    // Only set faviconUrl if site doesn't have one at all
+    if (!site.faviconUrl) {
+      const defaultSite = DEFAULT_SITES.find(d => d.id === site.id);
+      if (defaultSite && defaultSite.faviconUrl) {
         site.faviconUrl = defaultSite.faviconUrl;
         updated = true;
       }

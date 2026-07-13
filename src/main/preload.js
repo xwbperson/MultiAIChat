@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('api', {
   hasLocalFavicon: (siteId) => ipcRenderer.invoke('favicon:hasLocal', siteId),
   deleteLocalFavicon: (siteId) => ipcRenderer.invoke('favicon:deleteLocal', siteId),
   detectFaviconFromDomain: (domain, proxyConfig) => ipcRenderer.invoke('favicon:detectFromDomain', domain, proxyConfig),
+  getGoogleFaviconUrl: (domain) => ipcRenderer.invoke('favicon:getGoogleUrl', domain),
 
   // Events from main
   onMaximizeChanged: (callback) => ipcRenderer.on('window:maximized', (e, isMaximized) => callback(isMaximized)),

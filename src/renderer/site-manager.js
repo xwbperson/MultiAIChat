@@ -429,7 +429,7 @@ class SiteManager {
         e.target.value === 'custom' ? 'block' : 'none';
     });
 
-    // Auto-detect favicon button
+    // Auto-detect favicon button - use Google favicon service
     dialog.querySelector('#add-detect-favicon').addEventListener('click', async () => {
       const url = dialog.querySelector('#add-url').value;
       if (!url || url === 'https://') {
@@ -437,27 +437,18 @@ class SiteManager {
         return;
       }
 
-      const proxyMode = dialog.querySelector('#add-proxy-mode').value;
-      let proxyConfig = '';
-      if (proxyMode === 'direct') proxyConfig = 'direct';
-      else if (proxyMode === 'system') proxyConfig = 'system';
-      else if (proxyMode === 'custom') proxyConfig = dialog.querySelector('#add-proxy').value.trim();
-
       try {
         const domain = new URL(url).hostname;
         const preview = dialog.querySelector('#add-favicon-preview');
         preview.innerHTML = '<span class="favicon-status">检测中...</span>';
 
-        const result = await window.api.detectFaviconFromDomain(domain, proxyConfig);
-        if (result.success) {
-          dialog.querySelector('#add-icon').value = result.url;
-          preview.innerHTML = `
-            <img src="${result.url}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
-            <span class="favicon-status">已检测到</span>
-          `;
-        } else {
-          preview.innerHTML = '<span class="favicon-status">未检测到，使用默认图标</span>';
-        }
+        // Use Google favicon service directly
+        const googleUrl = await window.api.getGoogleFaviconUrl(domain);
+        dialog.querySelector('#add-icon').value = googleUrl;
+        preview.innerHTML = `
+          <img src="${googleUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+          <span class="favicon-status">已设置 (Google Favicon)</span>
+        `;
       } catch (err) {
         alert('URL 格式错误');
       }
@@ -586,7 +577,7 @@ class SiteManager {
 
     document.body.appendChild(dialog);
 
-    // Detect favicon button
+    // Detect favicon button - use Google favicon service
     dialog.querySelector('#edit-detect-favicon').addEventListener('click', async () => {
       const url = dialog.querySelector('#edit-url').value;
       if (!url) {
@@ -594,27 +585,18 @@ class SiteManager {
         return;
       }
 
-      const proxyMode = dialog.querySelector('#edit-proxy-mode').value;
-      let proxyConfig = '';
-      if (proxyMode === 'direct') proxyConfig = 'direct';
-      else if (proxyMode === 'system') proxyConfig = 'system';
-      else if (proxyMode === 'custom') proxyConfig = dialog.querySelector('#edit-proxy').value.trim();
-
       try {
         const domain = new URL(url).hostname;
         const preview = dialog.querySelector('#favicon-preview');
         preview.innerHTML = '<span class="favicon-status">检测中...</span>';
 
-        const result = await window.api.detectFaviconFromDomain(domain, proxyConfig);
-        if (result.success) {
-          dialog.querySelector('#edit-icon').value = result.url;
-          preview.innerHTML = `
-            <img src="${result.url}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
-            <span class="favicon-status">已检测到</span>
-          `;
-        } else {
-          preview.innerHTML = '<span class="favicon-status">未检测到</span>';
-        }
+        // Use Google favicon service directly
+        const googleUrl = await window.api.getGoogleFaviconUrl(domain);
+        dialog.querySelector('#edit-icon').value = googleUrl;
+        preview.innerHTML = `
+          <img src="${googleUrl}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+          <span class="favicon-status">已设置 (Google Favicon)</span>
+        `;
       } catch (err) {
         alert('URL 格式错误');
       }

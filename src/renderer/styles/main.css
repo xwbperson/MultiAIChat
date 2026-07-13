@@ -566,3 +566,120 @@ html, body {
   background: var(--danger);
   color: white;
 }
+
+/* Site Manager */
+.site-manager-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.site-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.site-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+}
+
+.site-card-icon {
+  font-size: 20px;
+}
+
+.site-card-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.site-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.site-edit-btn,
+.site-delete-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.site-edit-btn:hover,
+.site-delete-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.site-delete-btn:hover {
+  color: var(--danger);
+}
+
+.site-card-details {
+  padding: 12px 16px;
+}
+
+.site-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  min-width: 40px;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.account-list-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.account-tag {
+  padding: 2px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.account-tag.default {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.add-account-btn {
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.add-account-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

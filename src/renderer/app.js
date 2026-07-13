@@ -20,4 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebar = new Sidebar();
   const toolbar = new Toolbar();
   const settingsPanel = new SettingsPanel();
+  const siteManager = new SiteManager(sidebar);
+
+  const siteManagerBtn = document.createElement('button');
+  siteManagerBtn.className = 'sidebar-btn';
+  siteManagerBtn.title = '站点管理';
+  siteManagerBtn.textContent = '📋';
+  siteManagerBtn.addEventListener('click', () => siteManager.open());
+  document.getElementById('sidebar-bottom').insertBefore(siteManagerBtn, document.getElementById('btn-settings'));
 });

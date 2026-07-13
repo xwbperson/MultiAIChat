@@ -151,82 +151,138 @@ class SiteManager {
 
   setupDragAndDrop(container) {
     let draggedSiteId = null;
+    let draggedElement = null;
+    let startY = 0;
+    let placeholder = null;
 
-    // Setup drag on each drag handle
-    container.querySelectorAll('.site-card-drag-handle').forEach(handle => {
+    // Mouse down on drag handle to start drag
+    container.addEventListener('mousedown', (e) => {
+      const handle = e.target.closest('.site-card-drag-handle');
+      if (!handle) return;
+
+      e.preventDefault();
       const card = handle.closest('.site-card');
-      const siteId = handle.dataset.siteId;
+      if (!card) return;
 
-      // Drag start on handle
-      handle.addEventListener('dragstart', (e) => {
-        draggedSiteId = siteId;
-        card.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', siteId);
-        // Set a timeout to allow the drag image to be captured
-        setTimeout(() => card.classList.add('dragging'), 0);
-      });
+      draggedSiteId = handle.dataset.siteId;
+      draggedElement = card;
+      startY = e.clientY;
 
-      // Drag end on handle
-      handle.addEventListener('dragend', () => {
-        card.classList.remove('dragging');
-        draggedSiteId = null;
-        // Remove all drag-over indicators
-        container.querySelectorAll('.site-card').forEach(c => c.classList.remove('drag-over'));
-      });
+      // Create placeholder
+      placeholder = document.createElement('div');
+      placeholder.className = 'drag-placeholder';
+      placeholder.style.height = card.offsetHeight + 'px';
+      card.parentNode.insertBefore(placeholder, card);
+
+      // Style the dragged element
+      card.classList.add('dragging');
+      card.style.position = 'fixed';
+      card.style.zIndex = '1000';
+      card.style.width = card.offsetWidth + 'px';
+      card.style.pointerEvents = 'none';
+      card.style.top = (e.clientY - card.offsetHeight / 2) + 'px';
+      card.style.left = card.getBoundingClientRect().left + 'px';
     });
 
-    // Setup drop targets on each card
-    container.querySelectorAll('.site-card').forEach(card => {
-      const siteId = card.dataset.siteId;
+    // Mouse move to update position and find drop target
+    document.addEventListener('mousemove', (e) => {
+      if (!draggedElement) return;
 
-      card.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        // Only show indicator if dragging over a different card
-        if (draggedSiteId && draggedSiteId !== siteId) {
-          card.classList.add('drag-over');
+      // Update dragged element position
+      draggedElement.style.top = (e.clientY - draggedElement.offsetHeight / 2) + 'px';
+
+      // Find the card we're hovering over
+      const cards = container.querySelectorAll('.site-card:not(.dragging)');
+      let closestCard = null;
+      let closestDistance = Infinity;
+
+      cards.forEach(card => {
+        const rect = card.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.abs(e.clientY - centerY);
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestCard = card;
         }
       });
 
-      card.addEventListener('dragleave', (e) => {
-        // Only remove if leaving the card itself, not a child
-        if (!card.contains(e.relatedTarget)) {
-          card.classList.remove('drag-over');
+      // Move placeholder
+      if (closestCard && placeholder) {
+        const rect = closestCard.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+
+        if (e.clientY < midY) {
+          closestCard.parentNode.insertBefore(placeholder, closestCard);
+        } else {
+          closestCard.parentNode.insertBefore(placeholder, closestCard.nextSibling);
         }
-      });
+      }
+    });
 
-      card.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        card.classList.remove('drag-over');
+    // Mouse up to complete the drop
+    document.addEventListener('mouseup', async (e) => {
+      if (!draggedElement || !placeholder) return;
 
-        if (!draggedSiteId || draggedSiteId === siteId) return;
+      // Find the target index based on placeholder position
+      const allCards = Array.from(container.querySelectorAll('.site-card'));
+      const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
+      const draggedIndex = allCards.indexOf(draggedElement);
 
+      // Reset styles
+      draggedElement.classList.remove('dragging');
+      draggedElement.style.position = '';
+      draggedElement.style.zIndex = '';
+      draggedElement.style.width = '';
+      draggedElement.style.pointerEvents = '';
+      draggedElement.style.top = '';
+      draggedElement.style.left = '';
+
+      // Remove placeholder
+      if (placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+
+      // Calculate new order
+      if (placeholderIndex !== -1 && draggedIndex !== -1 && placeholderIndex !== draggedIndex) {
         const sites = await window.api.getSites();
-        const draggedIndex = sites.findIndex(s => s.id === draggedSiteId);
-        const targetIndex = sites.findIndex(s => s.id === siteId);
+        const draggedSiteIndex = sites.findIndex(s => s.id === draggedSiteId);
 
-        if (draggedIndex === -1 || targetIndex === -1) return;
+        if (draggedSiteIndex !== -1) {
+          // Remove dragged site from array
+          const [draggedSite] = sites.splice(draggedSiteIndex, 1);
 
-        // Reorder
-        const [dragged] = sites.splice(draggedIndex, 1);
-        sites.splice(targetIndex, 0, dragged);
+          // Calculate target index (accounting for the removed item)
+          let targetIndex = placeholderIndex;
+          if (placeholderIndex > draggedSiteIndex) {
+            targetIndex = Math.min(placeholderIndex - 1, sites.length);
+          }
+          targetIndex = Math.max(0, Math.min(targetIndex, sites.length));
 
-        // Update order
-        for (let i = 0; i < sites.length; i++) {
-          await window.api.updateSite(sites[i].id, { order: i });
+          // Insert at new position
+          sites.splice(targetIndex, 0, draggedSite);
+
+          // Update order
+          for (let i = 0; i < sites.length; i++) {
+            await window.api.updateSite(sites[i].id, { order: i });
+          }
+
+          // Re-render
+          await this.renderSiteList();
+          if (this.sidebar) {
+            await this.sidebar.loadSites();
+            this.sidebar.render();
+          }
         }
+      }
 
-        // Re-render
-        await this.renderSiteList();
-        if (this.sidebar) {
-          await this.sidebar.loadSites();
-          this.sidebar.render();
-        }
-      });
+      // Reset state
+      draggedSiteId = null;
+      draggedElement = null;
+      placeholder = null;
     });
 
-    // Keyboard support
+    // Keyboard support for drag handles
     container.querySelectorAll('.site-card-drag-handle').forEach(handle => {
       handle.addEventListener('keydown', async (e) => {
         const siteId = handle.dataset.siteId;
@@ -240,7 +296,7 @@ class SiteManager {
           setTimeout(() => {
             const handles = container.querySelectorAll('.site-card-drag-handle');
             if (handles[currentIndex - 1]) handles[currentIndex - 1].focus();
-          }, 50);
+          }, 100);
         } else if (e.key === 'ArrowDown' && currentIndex < sites.length - 1) {
           e.preventDefault();
           [sites[currentIndex], sites[currentIndex + 1]] = [sites[currentIndex + 1], sites[currentIndex]];
@@ -248,7 +304,7 @@ class SiteManager {
           setTimeout(() => {
             const handles = container.querySelectorAll('.site-card-drag-handle');
             if (handles[currentIndex + 1]) handles[currentIndex + 1].focus();
-          }, 50);
+          }, 100);
         }
       });
     });

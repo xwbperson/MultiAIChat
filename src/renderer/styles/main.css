@@ -660,13 +660,22 @@ html, body {
 }
 
 .site-card.dragging {
+  opacity: 0.8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+}
+
+.drag-placeholder {
+  background: var(--bg-surface);
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  margin-bottom: 12px;
   opacity: 0.5;
-  transform: scale(0.98);
 }
 
 .site-card.drag-over {
   border: 2px solid var(--accent);
-  margin-top: 4px;
 }
 
 .site-card-icon {

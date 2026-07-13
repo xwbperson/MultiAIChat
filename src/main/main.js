@@ -3,9 +3,11 @@ const path = require('path');
 const { getWindowState, saveWindowState } = require('./window-manager');
 const configStore = require('./config-store');
 const ViewManager = require('./view-manager');
+const HibernationManager = require('./hibernation-manager');
 
 let mainWindow;
 let viewManager;
+let hibernationManager;
 
 function createWindow() {
   const state = getWindowState();
@@ -34,12 +36,18 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   viewManager = new ViewManager(mainWindow);
+  hibernationManager = new HibernationManager(viewManager, configStore);
 
   mainWindow.on('resize', () => {
     viewManager.updateAllBounds();
   });
 
-  mainWindow.on('close', () => saveWindowState(mainWindow));
+  mainWindow.on('close', () => {
+    if (hibernationManager) {
+      hibernationManager.stopScheduler();
+    }
+    saveWindowState(mainWindow);
+  });
 
   ipcMain.handle('window:minimize', () => mainWindow.minimize());
   ipcMain.handle('window:maximize', () => {
@@ -90,6 +98,42 @@ function createWindow() {
     await viewManager.switchTo(siteId, accountId);
     configStore.setActiveState(siteId, accountId);
 
+    if (hibernationManager) {
+      hibernationManager.onSiteActivated(siteId, accountId);
+    }
+
+    return { success: true };
+  });
+
+  // Hibernation IPC handlers
+  ipcMain.handle('hibernate:status', () => hibernationManager.getStatus());
+  ipcMain.handle('hibernate:site', async (e, siteId) => {
+    const active = configStore.getActiveState();
+    if (active.siteId === siteId) {
+      return { success: false, reason: 'Cannot hibernate active site' };
+    }
+    const views = viewManager.getAllViews().filter(v => v.siteId === siteId);
+    for (const v of views) {
+      await hibernationManager.forceHibernate(siteId, v.accountId);
+    }
+    return { success: true };
+  });
+  ipcMain.handle('hibernate:wake', async (e, siteId, accountId) => {
+    const sites = configStore.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) throw new Error(`Site not found: ${siteId}`);
+
+    if (accountId) {
+      await hibernationManager.forceWake(siteId, accountId, site);
+    } else {
+      // Wake all hibernated views for this site
+      const hibernated = viewManager.getAllViews().filter(
+        v => v.siteId === siteId && v.state === 'hibernated'
+      );
+      for (const v of hibernated) {
+        await hibernationManager.forceWake(siteId, v.accountId, site);
+      }
+    }
     return { success: true };
   });
 }

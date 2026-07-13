@@ -114,13 +114,19 @@ class ViewManager {
     const viewData = this.views.get(key);
     if (!viewData || viewData.state !== 'hibernated') return;
 
+    const savedUrl = viewData.url;
+    const partition = viewData.partition;
+
+    // Remove stale entry so createView can build a fresh one
+    this.views.delete(key);
+
     const newViewData = await this.createView(
-      { ...site, proxy: viewData.partition },
-      { id: accountId, partition: viewData.partition }
+      { ...site, proxy: partition },
+      { id: accountId, partition: partition }
     );
 
-    if (viewData.url && viewData.url !== site.url) {
-      newViewData.view.webContents.loadURL(viewData.url);
+    if (savedUrl && savedUrl !== site.url) {
+      newViewData.view.webContents.loadURL(savedUrl);
     }
 
     return newViewData;

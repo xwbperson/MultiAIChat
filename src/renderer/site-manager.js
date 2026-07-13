@@ -64,7 +64,12 @@ class SiteManager {
       <div class="site-card" data-site-id="${site.id}" data-index="${index}">
         <div class="site-card-header">
           <span class="site-card-drag-handle" title="拖拽排序" role="button" tabindex="0" aria-label="拖拽排序 ${site.name}" draggable="true" data-site-id="${site.id}">⠿</span>
-          <span class="site-card-icon" aria-hidden="true">${site.icon}</span>
+          <span class="site-card-icon" aria-hidden="true">
+            ${site.faviconUrl
+              ? `<img src="${site.faviconUrl}" class="site-card-favicon" onerror="this.outerHTML='${site.icon}'">`
+              : site.icon
+            }
+          </span>
           <span class="site-card-name">${site.name}</span>
           <div class="site-card-actions">
             <button class="site-edit-btn" data-site-id="${site.id}" aria-label="编辑 ${site.name}">✎</button>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Workspace</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <div id="titlebar">
+      <div class="titlebar-drag"></div>
+      <div class="window-controls">
+        <button id="btn-minimize" class="win-btn">─</button>
+        <button id="btn-maximize" class="win-btn">□</button>
+        <button id="btn-close" class="win-btn close">✕</button>
+      </div>
+    </div>
+    <div id="sidebar"></div>
+    <div id="main">
+      <div id="toolbar"></div>
+      <div id="view-container"></div>
+    </div>
+    <div id="statusbar"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

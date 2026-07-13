@@ -1,0 +1,32 @@
+{
+  "name": "ai-workspace",
+  "version": "1.0.0",
+  "description": "Multi-AI site aggregation desktop client",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "electron . --dev"
+  },
+  "build": {
+    "appId": "com.aiworkspace.app",
+    "productName": "AI Workspace",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^43.1.0",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  }
+}

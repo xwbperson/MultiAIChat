@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: file: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>AI Workspace</title>
   <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -12,15 +13,15 @@
       <div class="app-title">AI Workspace</div>
       <div class="titlebar-drag"></div>
       <div class="window-controls">
-        <button id="btn-minimize" class="win-btn">─</button>
-        <button id="btn-maximize" class="win-btn">□</button>
-        <button id="btn-close" class="win-btn close">✕</button>
+        <button id="btn-minimize" class="win-btn" type="button" aria-label="最小化">─</button>
+        <button id="btn-maximize" class="win-btn" type="button" aria-label="最大化">□</button>
+        <button id="btn-close" class="win-btn close" type="button" aria-label="关闭">✕</button>
       </div>
     </div>
     <div id="sidebar">
       <div id="site-list"></div>
       <div id="sidebar-bottom">
-        <button id="btn-settings" class="sidebar-btn" title="设置">⚙</button>
+        <button id="btn-settings" class="sidebar-btn" type="button" title="设置" aria-label="打开设置">⚙</button>
       </div>
     </div>
     <div id="main">

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteSite: (id) => ipcRenderer.invoke('site:delete', id),
   switchSite: (siteId, accountId) => ipcRenderer.invoke('site:switch', siteId, accountId),
   addAccount: (siteId, account) => ipcRenderer.invoke('site:addAccount', siteId, account),
+  renameAccount: (siteId, accountId, label) => ipcRenderer.invoke('site:renameAccount', siteId, accountId, label),
   removeAccount: (siteId, accountId) => ipcRenderer.invoke('site:removeAccount', siteId, accountId),
 
   // Proxy
@@ -60,5 +61,9 @@ contextBridge.exposeInMainWorld('api', {
   onHibernateStatus: (callback) => ipcRenderer.on('hibernate:statusChanged', (e, data) => callback(data)),
   onOpenSiteManager: (callback) => ipcRenderer.on('open:siteManager', () => callback()),
   onOpenSettings: (callback) => ipcRenderer.on('open:settings', () => callback()),
-  onOpenFirstSite: (callback) => ipcRenderer.on('open:firstSite', (e, data) => callback(data))
+  onOpenAddSite: (callback) => ipcRenderer.on('open:addSite', () => callback()),
+  onOpenFirstSite: (callback) => ipcRenderer.on('open:firstSite', (e, data) => callback(data)),
+  onNavigationState: (callback) => ipcRenderer.on('webview:navigationState', (e, data) => callback(data)),
+  onSiteActivated: (callback) => ipcRenderer.on('site:activated', (e, data) => callback(data)),
+  onFocusUrl: (callback) => ipcRenderer.on('toolbar:focusUrl', () => callback())
 });

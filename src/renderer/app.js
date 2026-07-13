@@ -1,3 +1,17 @@
+window.viewOverlay = (() => {
+  const tokens = new Set();
+  return {
+    acquire(token) {
+      tokens.add(token);
+      window.api.hideView?.();
+    },
+    release(token) {
+      tokens.delete(token);
+      if (tokens.size === 0) window.api.showView?.();
+    }
+  };
+})();
+
 class StatusBar {
   constructor() {
     this.container = document.getElementById('statusbar');
@@ -15,6 +29,7 @@ class StatusBar {
       const sites = await window.api.getSites();
       const active = await window.api.getActiveState?.() || {};
       const hibernateStatus = await window.api.getHibernateStatus?.() || {};
+      const settings = await window.api.getSettings();
 
       const currentSite = sites.find(s => s.id === active.siteId);
       const currentAccount = currentSite?.accounts.find(a => a.id === active.accountId);
@@ -25,15 +40,30 @@ class StatusBar {
         parts.push(`${currentSite.icon} ${currentSite.name}${currentAccount ? ' - ' + currentAccount.label : ''}`);
       }
 
-      if (currentSite?.proxy) {
-        parts.push(`代理: ${currentSite.proxy === 'direct' ? '直连' : currentSite.proxy}`);
+      if (currentSite) {
+        const proxy = currentSite.proxy
+          || (settings.defaultProxyMode === 'custom' ? settings.defaultProxy : settings.defaultProxyMode);
+        const proxyLabel = proxy === 'direct' ? '直连' : proxy === 'system' ? '系统代理' : proxy;
+        if (proxyLabel) parts.push(`代理: ${proxyLabel}`);
       }
 
       if (hibernateStatus.total !== undefined) {
         parts.push(`活跃: ${hibernateStatus.active} | 休眠: ${hibernateStatus.hibernated}`);
       }
 
-      this.container.innerHTML = parts.map(p => `<span>${p}</span>`).join('<span class="status-separator">|</span>');
+      const nodes = [];
+      parts.forEach((part, index) => {
+        if (index > 0) {
+          const separator = document.createElement('span');
+          separator.className = 'status-separator';
+          separator.textContent = '|';
+          nodes.push(separator);
+        }
+        const item = document.createElement('span');
+        item.textContent = part;
+        nodes.push(item);
+      });
+      this.container.replaceChildren(...nodes);
     } catch (err) {
       console.error('StatusBar update failed:', err);
     }
@@ -61,16 +91,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sidebar = new Sidebar();
   const toolbar = new Toolbar();
-  const settingsPanel = new SettingsPanel();
+  const settingsPanel = new SettingsPanel(sidebar);
   const siteManager = new SiteManager(sidebar);
   const statusBar = new StatusBar();
 
   // Connect sidebar and toolbar
   sidebar.setToolbar(toolbar);
+  window.api.onNavigationState?.((state) => toolbar.setNavigationState(state));
 
   // Handle tray menu commands
-  window.api.onOpenSiteManager?.(() => siteManager.open());
-  window.api.onOpenSettings?.(() => settingsPanel.open());
+  window.api.onOpenSiteManager?.(() => {
+    if (settingsPanel.isOpen) settingsPanel.close();
+    siteManager.open();
+  });
+  window.api.onOpenSettings?.(() => {
+    if (siteManager.isOpen) siteManager.close();
+    settingsPanel.open();
+  });
+  window.api.onOpenAddSite?.(() => siteManager.showAddSite());
+  window.api.onSiteActivated?.(({ siteId, accountId }) => sidebar.syncActiveSite(siteId, accountId));
+  window.api.onFocusUrl?.(() => toolbar.focusUrl());
 
   // Auto-open first site on startup
   window.api.onOpenFirstSite?.((data) => {
@@ -81,10 +121,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const siteManagerBtn = document.createElement('button');
   siteManagerBtn.className = 'sidebar-btn';
+  siteManagerBtn.type = 'button';
   siteManagerBtn.title = '站点管理';
+  siteManagerBtn.setAttribute('aria-label', '打开站点管理');
   siteManagerBtn.textContent = '📋';
-  siteManagerBtn.addEventListener('click', () => siteManager.open());
+  siteManagerBtn.addEventListener('click', () => {
+    if (settingsPanel.isOpen) settingsPanel.close();
+    siteManager.open();
+  });
   document.getElementById('sidebar-bottom').insertBefore(siteManagerBtn, document.getElementById('btn-settings'));
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    if (siteManager.isOpen) siteManager.close();
+  }, { capture: true });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', async (e) => {
@@ -108,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check for site shortcut match (any custom shortcut)
     const currentShortcut = getShortcutString(e);
-    const sites = await window.api.getSites();
+    const sites = sidebar.sites;
     const siteByShortcut = sites.find(s => s.shortcut === currentShortcut);
     if (siteByShortcut) {
       e.preventDefault();
@@ -120,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ctrl+Tab / Ctrl+Shift+Tab: Next/previous site
     if (e.ctrlKey && e.key === 'Tab') {
       e.preventDefault();
-      const sites = await window.api.getSites();
       if (sites.length === 0) return;
 
       const currentIndex = sites.findIndex(s => s.id === sidebar.activeSiteId);
@@ -143,14 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ctrl+L: Focus URL bar (select text for copying)
     if (e.ctrlKey && e.key === 'l') {
       e.preventDefault();
-      const urlText = document.getElementById('url-text');
-      if (urlText) {
-        const range = document.createRange();
-        range.selectNodeContents(urlText);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
+      toolbar.focusUrl();
       return;
     }
 

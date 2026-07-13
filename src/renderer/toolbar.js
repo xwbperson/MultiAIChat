@@ -13,8 +13,8 @@ class Toolbar {
   render() {
     this.container.innerHTML = `
       <div class="toolbar-nav">
-        <button id="btn-back" class="toolbar-btn" title="后退 (Alt+←)" aria-label="后退">←</button>
-        <button id="btn-forward" class="toolbar-btn" title="前进 (Alt+→)" aria-label="前进">→</button>
+        <button id="btn-back" class="toolbar-btn" title="后退 (Alt+←)" aria-label="后退" disabled>←</button>
+        <button id="btn-forward" class="toolbar-btn" title="前进 (Alt+→)" aria-label="前进" disabled>→</button>
         <button id="btn-refresh" class="toolbar-btn" title="刷新 (F5)" aria-label="刷新">↻</button>
       </div>
       <div class="toolbar-separator"></div>
@@ -44,11 +44,19 @@ class Toolbar {
       window.api.refresh?.();
     });
 
-    document.getElementById('toolbar-url').addEventListener('click', () => {
+    const copyCurrentUrl = () => {
       const url = document.getElementById('url-text').textContent;
       if (url && url !== 'AI Workspace') {
-        navigator.clipboard.writeText(url);
-        this.showTooltip('已复制');
+        navigator.clipboard.writeText(url)
+          .then(() => this.showTooltip('已复制'))
+          .catch(() => this.showTooltip('复制失败'));
+      }
+    };
+    document.getElementById('toolbar-url').addEventListener('click', copyCurrentUrl);
+    document.getElementById('toolbar-url').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        copyCurrentUrl();
       }
     });
 
@@ -62,6 +70,28 @@ class Toolbar {
     if (urlText) {
       urlText.textContent = url || 'AI Workspace';
     }
+  }
+
+  setNavigationState(state = {}) {
+    this.setUrl(state.url);
+    document.getElementById('btn-back').disabled = !state.canGoBack;
+    document.getElementById('btn-forward').disabled = !state.canGoForward;
+    if (Number.isFinite(state.zoomLevel)) {
+      this.currentZoom = Math.round(100 * Math.pow(1.2, state.zoomLevel));
+      document.getElementById('zoom-level').textContent = `${this.currentZoom}%`;
+    }
+  }
+
+  focusUrl() {
+    const urlText = document.getElementById('url-text');
+    const urlContainer = document.getElementById('toolbar-url');
+    if (!urlText || !urlContainer) return;
+    urlContainer.focus();
+    const range = document.createRange();
+    range.selectNodeContents(urlText);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   zoom(delta) {

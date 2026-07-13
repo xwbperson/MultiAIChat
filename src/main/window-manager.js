@@ -13,15 +13,23 @@ const DEFAULT_STATE = {
 
 function getWindowState() {
   const saved = store.get('windowState', DEFAULT_STATE);
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const primary = screen.getPrimaryDisplay();
+  let display = primary;
 
   if (saved.x !== undefined && saved.y !== undefined) {
     const bounds = { x: saved.x, y: saved.y, width: saved.width, height: saved.height };
-    if (bounds.x > width - 100 || bounds.y > height - 100) {
+    display = screen.getDisplayMatching(bounds);
+    const area = display.workArea;
+    const visibleWidth = Math.max(0, Math.min(bounds.x + bounds.width, area.x + area.width) - Math.max(bounds.x, area.x));
+    const visibleHeight = Math.max(0, Math.min(bounds.y + bounds.height, area.y + area.height) - Math.max(bounds.y, area.y));
+    if (visibleWidth < 100 || visibleHeight < 100) {
       saved.x = undefined;
       saved.y = undefined;
+      display = primary;
     }
   }
+
+  const { width, height } = display.workAreaSize;
 
   return {
     width: Math.min(saved.width, width),
@@ -36,15 +44,7 @@ function saveWindowState(mainWindow) {
   if (!mainWindow) return;
 
   const isMaximized = mainWindow.isMaximized();
-  let bounds;
-
-  if (isMaximized) {
-    mainWindow.restore();
-    bounds = mainWindow.getBounds();
-    mainWindow.maximize();
-  } else {
-    bounds = mainWindow.getBounds();
-  }
+  const bounds = mainWindow.getNormalBounds();
 
   store.set('windowState', {
     width: bounds.width,

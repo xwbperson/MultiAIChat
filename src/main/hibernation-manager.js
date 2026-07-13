@@ -1,4 +1,5 @@
 const { BrowserWindow } = require('electron');
+const { selectHibernateCandidates } = require('./hibernation-policy');
 
 class HibernationManager {
   constructor(viewManager, configStore) {
@@ -19,53 +20,47 @@ class HibernationManager {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
-    for (const [, timers] of this.timers) {
-      clearTimeout(timers.hibernateTimer);
-    }
+    this.cancelAllCountdowns();
+  }
+
+  cancelAllCountdowns() {
+    for (const [, timers] of this.timers) clearTimeout(timers.hibernateTimer);
     this.timers.clear();
   }
 
   checkAll() {
     const settings = this.configStore.getSettings();
-    const maxActive = settings.maxActiveTabs || 3;
-    const idleTimeout = settings.idleTimeout || 30000;
-    const hibernateDelay = settings.hibernateDelay || 10000;
+    const candidates = new Set(selectHibernateCandidates(this.viewManager.getAllViews(), {
+      activeKey: this.viewManager.activeKey,
+      maxActiveTabs: settings.maxActiveTabs,
+      idleTimeout: settings.idleTimeout,
+      now: Date.now()
+    }));
 
-    const views = this.viewManager.getAllViews();
-    const now = Date.now();
-
-    // Demote excess active views to idle (keep current active + most recent)
-    const activeViews = views.filter(v => v.state === 'active');
-    if (activeViews.length > maxActive) {
-      const excess = activeViews
-        .filter(v => v.key !== this.viewManager.activeKey)
-        .sort((a, b) => a.lastActive - b.lastActive);
-
-      for (let i = 0; i < excess.length && activeViews.length - i > maxActive; i++) {
-        const viewData = this.viewManager.views.get(excess[i].key);
-        if (viewData) {
-          viewData.state = 'idle';
-          viewData.lastActive = now;
-        }
-      }
+    for (const key of this.timers.keys()) {
+      if (!candidates.has(key)) this.cancelHibernate(key);
     }
 
-    // Start hibernate countdown for idle views past timeout
-    const idleViews = views.filter(v => v.state === 'idle');
-    for (const view of idleViews) {
-      const timeSinceActive = now - view.lastActive;
-      if (timeSinceActive >= idleTimeout && !this.timers.has(view.key)) {
-        this.startHibernateCountdown(view.key, hibernateDelay);
+    for (const key of candidates) {
+      if (!this.timers.has(key)) {
+        this.startHibernateCountdown(key, settings.hibernateDelay);
       }
     }
   }
 
   startHibernateCountdown(key, delay) {
     const timer = setTimeout(() => {
-      const viewData = this.viewManager.views.get(key);
-      if (viewData && viewData.state === 'idle') {
-        this.viewManager.hibernate(viewData.siteId, viewData.accountId);
-        this.notifyStatusChange(viewData.siteId, viewData.accountId, 'hibernated');
+      const viewData = this.viewManager.getAllViews().find(view => view.key === key);
+      const settings = this.configStore.getSettings();
+      const stillEligible = selectHibernateCandidates(this.viewManager.getAllViews(), {
+        activeKey: this.viewManager.activeKey,
+        maxActiveTabs: settings.maxActiveTabs,
+        idleTimeout: settings.idleTimeout,
+        now: Date.now()
+      }).includes(key);
+      if (viewData && stillEligible) {
+        const hibernated = this.viewManager.hibernate(viewData.siteId, viewData.accountId);
+        if (hibernated) this.notifyStatusChange(viewData.siteId, viewData.accountId, 'hibernated');
       }
       this.timers.delete(key);
     }, delay);
@@ -84,33 +79,19 @@ class HibernationManager {
   onSiteActivated(siteId, accountId) {
     const key = this.viewManager.getKey(siteId, accountId);
     this.cancelHibernate(key);
-
-    const viewData = this.viewManager.views.get(key);
-    if (viewData) {
-      viewData.state = 'active';
-      viewData.lastActive = Date.now();
-    }
-  }
-
-  onSiteDeactivated(siteId, accountId) {
-    const key = this.viewManager.getKey(siteId, accountId);
-    const viewData = this.viewManager.views.get(key);
-    if (viewData) {
-      viewData.state = 'idle';
-      viewData.lastActive = Date.now();
-    }
   }
 
   async forceHibernate(siteId, accountId) {
     const key = this.viewManager.getKey(siteId, accountId);
     this.cancelHibernate(key);
-    this.viewManager.hibernate(siteId, accountId);
-    this.notifyStatusChange(siteId, accountId, 'hibernated');
+    const hibernated = this.viewManager.hibernate(siteId, accountId);
+    if (hibernated) this.notifyStatusChange(siteId, accountId, 'hibernated');
+    return hibernated;
   }
 
-  async forceWake(siteId, accountId, site) {
-    await this.viewManager.wake(siteId, accountId, site);
-    this.notifyStatusChange(siteId, accountId, 'active');
+  async forceWake(siteId, accountId, site, account, proxyConfig) {
+    const viewData = await this.viewManager.wake(siteId, accountId, site, account, proxyConfig);
+    if (viewData) this.notifyStatusChange(siteId, accountId, 'idle');
   }
 
   notifyStatusChange(siteId, accountId, state) {

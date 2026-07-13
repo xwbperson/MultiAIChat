@@ -6,6 +6,10 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
+    "test": "node --test",
+    "check": "node scripts/check-syntax.js && npm test",
+    "icon:generate": "node scripts/generate-icon.js",
+    "prebuild": "npm run icon:generate",
     "build": "electron-builder --win --publish never",
     "build:publish": "electron-builder --win --publish always"
   },

@@ -1,5 +1,7 @@
 class SettingsPanel {
-  constructor() {
+  constructor(sidebar) {
+    this.sidebar = sidebar;
+    this.overlayToken = Symbol('settings');
     this.isOpen = false;
     this.settings = {};
     this.init();
@@ -77,6 +79,10 @@ class SettingsPanel {
               <label>通知角标</label>
               <input type="checkbox" id="setting-badges" checked>
             </div>
+            <div class="setting-row">
+              <label>自定义右键菜单</label>
+              <input type="checkbox" id="setting-context-menu" checked>
+            </div>
           </section>
 
           <section class="settings-section">
@@ -142,7 +148,9 @@ class SettingsPanel {
           await window.api.importConfig(text);
           this.settings = await window.api.getSettings();
           this.loadSettings();
-          this.showToast(`已合并导入 ${importCount} 个站点配置（同名覆盖，新增增量，已有保留）`);
+          window.dispatchEvent(new CustomEvent('settings-changed', { detail: this.settings }));
+          await this.refreshSites();
+          this.showToast(`已合并导入 ${importCount} 个站点配置（同 ID 更新，已有账号保留）`);
         } catch (err) {
           alert('导入失败: ' + err.message);
         }
@@ -154,7 +162,10 @@ class SettingsPanel {
       if (!confirm('确定要清除全部站点数据吗？此操作不可撤销。')) return;
       try {
         await window.api.clearAllSiteData();
-        alert('站点数据已清除，重启应用后生效');
+        this.sidebar?.badges.clear();
+        this.sidebar?.hibernatedKeys.clear();
+        await this.refreshSites();
+        this.showToast('站点配置和账号数据已清除');
       } catch (err) {
         alert('清除失败: ' + err.message);
       }
@@ -162,7 +173,9 @@ class SettingsPanel {
 
     const inputs = document.querySelectorAll('.settings-content input, .settings-content select');
     inputs.forEach(input => {
-      input.addEventListener('change', () => this.saveSettings());
+      input.addEventListener('change', () => {
+        this.saveSettings().catch(err => this.showToast(`保存失败: ${err.message}`));
+      });
     });
   }
 
@@ -179,25 +192,27 @@ class SettingsPanel {
     document.getElementById('settings-overlay').classList.remove('hidden');
     this.loadSettings();
     // Hide the webview so overlay is visible
-    window.api.hideView?.();
+    window.viewOverlay.acquire(this.overlayToken);
   }
 
   close() {
     this.isOpen = false;
     document.getElementById('settings-overlay').classList.add('hidden');
     // Show the webview again
-    window.api.showView?.();
+    window.viewOverlay.release(this.overlayToken);
   }
 
   loadSettings() {
     const s = this.settings;
     document.getElementById('setting-proxy-mode').value = s.defaultProxyMode || 'system';
     document.getElementById('setting-max-active').value = s.maxActiveTabs || 3;
+    document.getElementById('setting-proxy-address').value = s.defaultProxy || '';
     document.getElementById('setting-idle-timeout').value = (s.idleTimeout || 30000) / 1000;
     document.getElementById('setting-hibernate-delay').value = (s.hibernateDelay || 10000) / 1000;
     document.getElementById('setting-auto-launch').checked = s.autoLaunch || false;
     document.getElementById('setting-minimize-tray').checked = s.minimizeToTray !== false;
     document.getElementById('setting-badges').checked = s.showBadges !== false;
+    document.getElementById('setting-context-menu').checked = s.customContextMenu !== false;
 
     document.getElementById('proxy-custom-row').style.display =
       s.defaultProxyMode === 'custom' ? 'flex' : 'none';
@@ -206,16 +221,28 @@ class SettingsPanel {
   async saveSettings() {
     const settings = {
       defaultProxyMode: document.getElementById('setting-proxy-mode').value,
+      defaultProxy: document.getElementById('setting-proxy-address').value.trim(),
       maxActiveTabs: parseInt(document.getElementById('setting-max-active').value),
       idleTimeout: parseInt(document.getElementById('setting-idle-timeout').value) * 1000,
       hibernateDelay: parseInt(document.getElementById('setting-hibernate-delay').value) * 1000,
       autoLaunch: document.getElementById('setting-auto-launch').checked,
       minimizeToTray: document.getElementById('setting-minimize-tray').checked,
-      showBadges: document.getElementById('setting-badges').checked
+      showBadges: document.getElementById('setting-badges').checked,
+      customContextMenu: document.getElementById('setting-context-menu').checked
     };
 
-    await window.api.updateSettings(settings);
-    this.settings = { ...this.settings, ...settings };
+    this.settings = await window.api.updateSettings(settings);
+    window.dispatchEvent(new CustomEvent('settings-changed', { detail: this.settings }));
+  }
+
+  async refreshSites() {
+    if (!this.sidebar) return;
+    const active = await window.api.getActiveState();
+    this.sidebar.hibernatedKeys.clear();
+    this.sidebar.activeSiteId = active.siteId;
+    this.sidebar.activeAccountId = active.accountId;
+    await this.sidebar.loadSites();
+    this.sidebar.render();
   }
 
   showToast(message) {

@@ -4,33 +4,32 @@ const { getSession, setProxy } = require('./session-manager');
 const { setupContextMenu } = require('./context-menu');
 
 class ViewManager {
-  constructor(mainWindow) {
+  constructor(mainWindow, dependencies = {}) {
     this.mainWindow = mainWindow;
     this.views = new Map();
     this.activeKey = null;
+    this.WebContentsView = dependencies.WebContentsView || WebContentsView;
+    this.getSession = dependencies.getSession || getSession;
+    this.setProxy = dependencies.setProxy || setProxy;
+    this.setupContextMenu = dependencies.setupContextMenu || setupContextMenu;
+    this.onBeforeInput = dependencies.onBeforeInput || null;
   }
 
   getKey(siteId, accountId) {
     return `${siteId}:${accountId}`;
   }
 
-  async createView(site, account) {
+  async createView(site, account, proxyConfig = site.proxy, initialUrl = site.url) {
     const key = this.getKey(site.id, account.id);
 
     if (this.views.has(key)) {
       return this.views.get(key);
     }
 
-    const ses = getSession(account.partition);
+    const ses = this.getSession(account.partition);
+    await this.setProxy(account.partition, proxyConfig || 'direct');
 
-    if (site.proxy) {
-      await setProxy(account.partition, site.proxy);
-    }
-
-    // Chrome User-Agent to avoid detection
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
-    const view = new WebContentsView({
+    const view = new this.WebContentsView({
       webPreferences: {
         session: ses,
         preload: path.join(__dirname, 'webview-preload.js'),
@@ -39,20 +38,33 @@ class ViewManager {
       }
     });
 
-    // Set User-Agent to avoid bot detection
-    view.webContents.setUserAgent(userAgent);
+    const userAgent = ses.getUserAgent?.()
+      ?.replace(/\sElectron\/\S+/g, '')
+      .replace(/\sAI Workspace\/\S+/g, '');
+    if (userAgent) view.webContents.setUserAgent(userAgent);
 
     this.mainWindow.contentView.addChildView(view);
+    view.setVisible(false);
     this.updateViewBounds(view);
-    view.webContents.loadURL(site.url);
+    const loadPromise = view.webContents.loadURL(initialUrl);
+    loadPromise?.catch?.((error) => {
+      console.error(`Failed to load ${initialUrl}:`, error);
+    });
 
     // Context menu for webview
-    setupContextMenu(view.webContents, () => this.mainWindow);
+    this.setupContextMenu(view.webContents, () => this.mainWindow);
+    if (this.onBeforeInput) {
+      view.webContents.on('before-input-event', (event, input) => {
+        if (this.onBeforeInput(input, { siteId: site.id, accountId: account.id })) {
+          event.preventDefault();
+        }
+      });
+    }
 
     const viewData = {
       view,
       state: 'loading',
-      url: site.url,
+      url: initialUrl,
       siteId: site.id,
       accountId: account.id,
       lastActive: Date.now(),
@@ -78,9 +90,45 @@ class ViewManager {
         viewData.state = 'idle';
       }
       // If it's the active view, keep state as 'active'
+      this.sendNavigationState(key);
+    });
+
+    view.webContents.on('did-navigate', () => {
+      viewData.url = view.webContents.getURL();
+      this.sendNavigationState(key);
+    });
+
+    view.webContents.on('did-navigate-in-page', () => {
+      viewData.url = view.webContents.getURL();
+      this.sendNavigationState(key);
     });
 
     return viewData;
+  }
+
+  sendNavigationState(key = this.activeKey) {
+    if (!key || key !== this.activeKey) return;
+    const viewData = this.views.get(key);
+    const contents = viewData?.view?.webContents;
+    if (!contents) return;
+    const history = contents.navigationHistory;
+    this.mainWindow.webContents.send('webview:navigationState', {
+      url: contents.getURL(),
+      canGoBack: history?.canGoBack?.() || false,
+      canGoForward: history?.canGoForward?.() || false,
+      zoomLevel: contents.getZoomLevel?.() || 0
+    });
+  }
+
+  async activate(site, account, proxyConfig = site.proxy) {
+    let viewData = this.getView(site.id, account.id);
+    if (viewData?.state === 'hibernated') {
+      viewData = await this.wake(site.id, account.id, site, account, proxyConfig);
+    } else if (!viewData) {
+      viewData = await this.createView(site, account, proxyConfig);
+    }
+
+    return this.switchTo(site.id, account.id);
   }
 
   async switchTo(siteId, accountId) {
@@ -114,6 +162,7 @@ class ViewManager {
     if (viewData.view) {
       this.mainWindow.contentView.addChildView(viewData.view);
     }
+    this.sendNavigationState(key);
 
     return viewData;
   }
@@ -121,7 +170,7 @@ class ViewManager {
   hibernate(siteId, accountId) {
     const key = this.getKey(siteId, accountId);
     const viewData = this.views.get(key);
-    if (!viewData || viewData.state === 'hibernated') return;
+    if (!viewData || !viewData.view || viewData.state === 'hibernated') return false;
 
     viewData.url = viewData.view.webContents.getURL();
     viewData.state = 'hibernated';
@@ -129,9 +178,10 @@ class ViewManager {
     this.mainWindow.contentView.removeChildView(viewData.view);
     viewData.view.webContents.close();
     viewData.view = null;
+    return true;
   }
 
-  async wake(siteId, accountId, site) {
+  async wake(siteId, accountId, site, account = {}, proxyConfig = site.proxy) {
     const key = this.getKey(siteId, accountId);
     const viewData = this.views.get(key);
     if (!viewData || viewData.state !== 'hibernated') return;
@@ -144,12 +194,10 @@ class ViewManager {
 
     const newViewData = await this.createView(
       { ...site },
-      { id: accountId, partition: partition }
+      { ...account, id: accountId, partition },
+      proxyConfig,
+      savedUrl || site.url
     );
-
-    if (savedUrl && savedUrl !== site.url) {
-      newViewData.view.webContents.loadURL(savedUrl);
-    }
 
     return newViewData;
   }
@@ -221,6 +269,7 @@ class ViewManager {
       viewData.view.webContents.close();
     }
     this.views.delete(key);
+    if (this.activeKey === key) this.activeKey = null;
   }
 
   removeAll() {

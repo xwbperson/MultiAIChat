@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { getWindowState, saveWindowState } = require('./window-manager');
+const configStore = require('./config-store');
 
 let mainWindow;
 
@@ -50,6 +51,18 @@ function createWindow() {
   mainWindow.on('unmaximize', () => {
     mainWindow.webContents.send('window:maximized', false);
   });
+
+  // Config store IPC handlers
+  ipcMain.handle('site:getAll', () => configStore.getSites());
+  ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
+  ipcMain.handle('site:update', (e, id, data) => configStore.updateSite(id, data));
+  ipcMain.handle('site:delete', (e, id) => configStore.deleteSite(id));
+
+  ipcMain.handle('settings:get', () => configStore.getSettings());
+  ipcMain.handle('settings:update', (e, settings) => configStore.updateSettings(settings));
+
+  ipcMain.handle('config:export', () => configStore.exportConfig());
+  ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
 }
 
 app.whenReady().then(createWindow);

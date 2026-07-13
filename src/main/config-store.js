@@ -1,0 +1,142 @@
+const Store = require('electron-store');
+const { DEFAULT_SITES } = require('./default-sites');
+
+const configStore = new Store({
+  name: 'config',
+  defaults: {
+    sites: DEFAULT_SITES,
+    settings: {
+      maxActiveTabs: 3,
+      idleTimeout: 30000,
+      hibernateDelay: 10000,
+      autoLaunch: false,
+      minimizeToTray: true,
+      globalHotkey: 'Ctrl+Shift+Space',
+      customContextMenu: true,
+      showBadges: true,
+      defaultProxyMode: 'system',
+      proxyRules: []
+    },
+    activeSite: null,
+    activeAccount: null
+  }
+});
+
+function getSites() {
+  return configStore.get('sites', []);
+}
+
+function addSite(site) {
+  const sites = getSites();
+  const newSite = {
+    id: site.id || `site-${Date.now()}`,
+    name: site.name,
+    url: site.url,
+    color: site.color || '#89b4fa',
+    icon: site.icon || '🌐',
+    proxy: site.proxy || '',
+    order: sites.length,
+    accounts: site.accounts || [
+      {
+        id: `${site.id || 'site'}-default`,
+        label: '默认',
+        partition: `persist:${site.id || 'site'}-default`,
+        isDefault: true
+      }
+    ]
+  };
+  sites.push(newSite);
+  configStore.set('sites', sites);
+  return newSite;
+}
+
+function updateSite(id, data) {
+  const sites = getSites();
+  const index = sites.findIndex(s => s.id === id);
+  if (index === -1) throw new Error(`Site not found: ${id}`);
+  sites[index] = { ...sites[index], ...data };
+  configStore.set('sites', sites);
+  return sites[index];
+}
+
+function deleteSite(id) {
+  const sites = getSites().filter(s => s.id !== id);
+  configStore.set('sites', sites);
+}
+
+function addAccount(siteId, account) {
+  const sites = getSites();
+  const site = sites.find(s => s.id === siteId);
+  if (!site) throw new Error(`Site not found: ${siteId}`);
+
+  const newAccount = {
+    id: account.id || `${siteId}-${Date.now()}`,
+    label: account.label || `账号 ${site.accounts.length + 1}`,
+    partition: `persist:${account.id || `${siteId}-${Date.now()}`}`,
+    isDefault: false
+  };
+  site.accounts.push(newAccount);
+  configStore.set('sites', sites);
+  return newAccount;
+}
+
+function removeAccount(siteId, accountId) {
+  const sites = getSites();
+  const site = sites.find(s => s.id === siteId);
+  if (!site) throw new Error(`Site not found: ${siteId}`);
+  site.accounts = site.accounts.filter(a => a.id !== accountId);
+  if (site.accounts.length === 0) {
+    throw new Error('Cannot remove last account');
+  }
+  if (!site.accounts.some(a => a.isDefault)) {
+    site.accounts[0].isDefault = true;
+  }
+  configStore.set('sites', sites);
+}
+
+function getSettings() {
+  return configStore.get('settings');
+}
+
+function updateSettings(settings) {
+  const current = getSettings();
+  configStore.set('settings', { ...current, ...settings });
+}
+
+function getActiveState() {
+  return {
+    siteId: configStore.get('activeSite'),
+    accountId: configStore.get('activeAccount')
+  };
+}
+
+function setActiveState(siteId, accountId) {
+  configStore.set('activeSite', siteId);
+  configStore.set('activeAccount', accountId);
+}
+
+function exportConfig() {
+  return JSON.stringify({
+    sites: getSites(),
+    settings: getSettings()
+  }, null, 2);
+}
+
+function importConfig(jsonString) {
+  const data = JSON.parse(jsonString);
+  if (data.sites) configStore.set('sites', data.sites);
+  if (data.settings) configStore.set('settings', { ...getSettings(), ...data.settings });
+}
+
+function getConfigPath() {
+  return configStore.path;
+}
+
+module.exports = {
+  getSites, addSite, updateSite, deleteSite,
+  addAccount, removeAccount,
+  getSettings, updateSettings,
+  getActiveState, setActiveState,
+  exportConfig, importConfig,
+  getConfigPath
+};

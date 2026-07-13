@@ -27,6 +27,9 @@ class ViewManager {
       await setProxy(account.partition, site.proxy);
     }
 
+    // Chrome User-Agent to avoid detection
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
     const view = new WebContentsView({
       webPreferences: {
         session: ses,
@@ -35,6 +38,9 @@ class ViewManager {
         nodeIntegration: false
       }
     });
+
+    // Set User-Agent to avoid bot detection
+    view.webContents.setUserAgent(userAgent);
 
     this.mainWindow.contentView.addChildView(view);
     this.updateViewBounds(view);

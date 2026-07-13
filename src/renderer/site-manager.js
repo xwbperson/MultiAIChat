@@ -56,6 +56,8 @@ class SiteManager {
 
   async renderSiteList() {
     const sites = await window.api.getSites();
+    // Sort by order property
+    sites.sort((a, b) => (a.order || 0) - (b.order || 0));
     const container = document.getElementById('site-list-container');
 
     container.innerHTML = sites.map((site, index) => `
@@ -188,17 +190,20 @@ class SiteManager {
 
         const sites = await window.api.getSites();
         const draggedIndex = sites.findIndex(s => s.id === draggedSiteId);
-        const targetIndex = parseInt(card.dataset.index);
+        const targetIndex = sites.findIndex(s => s.id === card.dataset.siteId);
 
         if (draggedIndex === -1 || targetIndex === -1) return;
 
+        // Reorder the array
         const [dragged] = sites.splice(draggedIndex, 1);
         sites.splice(targetIndex, 0, dragged);
 
+        // Update order in config
         for (let i = 0; i < sites.length; i++) {
           await window.api.updateSite(sites[i].id, { order: i });
         }
 
+        // Re-render
         await this.renderSiteList();
         if (this.sidebar) {
           await this.sidebar.loadSites();

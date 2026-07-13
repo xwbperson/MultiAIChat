@@ -38,6 +38,8 @@ class Sidebar {
 
   async loadSites() {
     this.sites = await window.api.getSites();
+    // Sort by order property
+    this.sites.sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
   render() {

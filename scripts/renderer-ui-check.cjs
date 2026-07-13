@@ -60,6 +60,17 @@ async function main() {
       await page.mouse.up();
     };
 
+    if (selectedCase === 'all' || selectedCase === 'favicon-cache') {
+      await page.locator('.site-item').first().waitFor();
+      result.remoteFaviconSourcesInRenderer = await page.locator('.site-item img').evaluateAll(images => (
+        images
+          .map(image => image.src)
+          .filter(source => /^https?:/i.test(source))
+      ));
+      result.rendererUsesOnlyLocalFavicons = result.remoteFaviconSourcesInRenderer.length === 0;
+      failed ||= !result.rendererUsesOnlyLocalFavicons;
+    }
+
     if (selectedCase === 'all' || selectedCase === 'settings') {
       await page.locator('#btn-settings').click();
       await page.locator('#settings-overlay:not(.hidden)').waitFor();

@@ -112,6 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   window.api.onOpenAddSite?.(() => siteManager.showAddSite());
   window.api.onSiteActivated?.(({ siteId, accountId }) => sidebar.syncActiveSite(siteId, accountId));
+  window.api.onSiteUpdate?.(async () => {
+    await sidebar.loadSites();
+    sidebar.render();
+    if (siteManager.isOpen) await siteManager.renderSiteList();
+  });
   window.api.onFocusUrl?.(() => toolbar.focusUrl());
 
   // Auto-open first site on startup

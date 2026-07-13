@@ -62,11 +62,16 @@ const repository = createConfigRepository(store, { defaultSettings: DEFAULT_SETT
 
 function migrateFaviconUrls() {
   for (const site of repository.getSites()) {
-    if (site.faviconUrl) continue;
     const defaultSite = DEFAULT_SITES.find(candidate => candidate.id === site.id);
-    if (defaultSite?.faviconUrl) {
+    const legacyRemoteUrl = /^https?:\/\//i.test(site.faviconUrl || '')
+      ? site.faviconUrl
+      : null;
+    const sourceUrl = legacyRemoteUrl
+      || defaultSite?.faviconSourceUrl
+      || defaultSite?.faviconUrl;
+    if (!site.faviconSourceUrl && sourceUrl) {
       try {
-        repository.updateSite(site.id, { faviconUrl: defaultSite.faviconUrl });
+        repository.updateSite(site.id, { faviconSourceUrl: sourceUrl });
       } catch (error) {
         console.warn(`Skipped favicon migration for ${site.id}:`, error.message);
       }

@@ -110,6 +110,34 @@ test('sites reject non-web URLs before they reach Electron', () => {
   assert.equal(repository.getSites().length, 0);
 });
 
+test('favicon cache and remote source addresses persist independently', () => {
+  const repository = createRepository();
+  const sourceUrl = 'https://icons.example/chat.ico';
+  const site = repository.addSite({
+    name: 'Chat',
+    url: 'https://chat.example',
+    faviconUrl: sourceUrl,
+    faviconSourceUrl: sourceUrl
+  });
+
+  repository.updateSite(site.id, {
+    faviconUrl: 'file:///favicons/chat.ico',
+    faviconSourceUrl: sourceUrl
+  });
+
+  const exported = JSON.parse(repository.exportConfig()).sites[0];
+  assert.equal(exported.faviconUrl, 'file:///favicons/chat.ico');
+  assert.equal(exported.faviconSourceUrl, sourceUrl);
+
+  repository.updateSite(site.id, { faviconUrl: null, faviconSourceUrl: null });
+  assert.equal(repository.getSites()[0].faviconUrl, null);
+  assert.equal(repository.getSites()[0].faviconSourceUrl, null);
+  assert.throws(
+    () => repository.updateSite(site.id, { faviconSourceUrl: 'file:///icons/chat.ico' }),
+    /http or https/i
+  );
+});
+
 test('removing the last account is rejected without changing configuration', () => {
   const repository = createRepository();
   const site = repository.addSite({ name: 'Chat', url: 'https://chat.example' });

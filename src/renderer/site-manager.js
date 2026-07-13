@@ -535,6 +535,8 @@ class SiteManager {
           name,
           url,
           icon: isUrl ? '🌐' : iconValue,
+          faviconUrl: isUrl ? iconValue : null,
+          faviconSourceUrl: isUrl ? iconValue : null,
           color,
           proxy
         });
@@ -542,9 +544,12 @@ class SiteManager {
         // If icon is a URL, fetch and save locally
         if (isUrl && newSite?.id) {
           const result = await window.api.fetchFavicon(iconValue, newSite.id, proxy);
-          await window.api.updateSite(newSite.id, {
-            faviconUrl: result.success ? result.localUrl : iconValue
-          });
+          if (result.success) {
+            await window.api.updateSite(newSite.id, {
+              faviconUrl: result.localUrl,
+              faviconSourceUrl: iconValue
+            });
+          }
         }
 
         closeDialog();
@@ -565,6 +570,8 @@ class SiteManager {
     // Get local favicon if exists
     const localFavicon = await window.api.getLocalFavicon(siteId);
     const hasFavicon = !!localFavicon || !!site.faviconUrl;
+    const initialIconValue = site.faviconSourceUrl || site.icon;
+    let faviconSelectionChanged = false;
 
     const dialog = document.createElement('div');
     dialog.className = 'edit-dialog-overlay';
@@ -582,11 +589,10 @@ class SiteManager {
         <div class="edit-field">
           <label>图标 (emoji 或 URL)</label>
           <div class="icon-input-row">
-            <input type="text" id="edit-icon" value="${escapeHtml(site.icon)}" placeholder="🌐 或 https://...">
+            <input type="text" id="edit-icon" value="${escapeHtml(initialIconValue)}" placeholder="🌐 或 https://...">
             <button id="edit-detect-favicon" class="settings-action-btn small" title="自动检测网站图标">🔍</button>
           </div>
           <div class="favicon-preview" id="favicon-preview">
-            ${site.faviconUrl ? `<img src="${safeImageUrl(site.faviconUrl)}" style="max-width:32px;max-height:32px;">` : ''}
             ${localFavicon ? `<img src="${safeImageUrl(localFavicon)}" style="max-width:32px;max-height:32px;">` : ''}
             <span class="favicon-status">${hasFavicon ? '已设置' : '未设置'}</span>
           </div>
@@ -631,6 +637,7 @@ class SiteManager {
         // Use Google favicon service directly
         const googleUrl = await window.api.getGoogleFaviconUrl(domain);
         dialog.querySelector('#edit-icon').value = googleUrl;
+        faviconSelectionChanged = true;
         preview.innerHTML = `
           <img src="${safeImageUrl(googleUrl)}" style="max-width:32px;max-height:32px;">
           <span class="favicon-status">已设置 (Google Favicon)</span>
@@ -661,28 +668,35 @@ class SiteManager {
 
         const iconValue = dialog.querySelector('#edit-icon').value.trim();
         const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
-        let faviconUrl = null;
-
-        // If icon is a URL, fetch and save locally (using proxy if configured)
-        if (isUrl) {
-          const result = await window.api.fetchFavicon(iconValue, siteId, proxy);
-          if (result.success) {
-            faviconUrl = result.localUrl;
-          } else {
-            faviconUrl = iconValue;
-          }
-        } else {
-          await window.api.deleteLocalFavicon(siteId);
-        }
-
-        await window.api.updateSite(siteId, {
+        const iconChanged = faviconSelectionChanged || iconValue !== initialIconValue;
+        const patch = {
           name: dialog.querySelector('#edit-name').value,
           url: dialog.querySelector('#edit-url').value,
-          icon: isUrl ? '🌐' : iconValue,
-          faviconUrl,
           color: dialog.querySelector('#edit-color').value,
           proxy
-        });
+        };
+
+        if (iconChanged) {
+          Object.assign(patch, {
+            icon: isUrl ? '🌐' : iconValue,
+            faviconUrl: isUrl ? iconValue : null,
+            faviconSourceUrl: isUrl ? iconValue : null
+          });
+        }
+
+        await window.api.updateSite(siteId, patch);
+
+        if (iconChanged && isUrl) {
+          const result = await window.api.fetchFavicon(iconValue, siteId, proxy);
+          if (result.success) {
+            await window.api.updateSite(siteId, {
+              faviconUrl: result.localUrl,
+              faviconSourceUrl: iconValue
+            });
+          }
+        } else if (iconChanged) {
+          await window.api.deleteLocalFavicon(siteId);
+        }
 
         closeDialog();
         await this.renderSiteList();

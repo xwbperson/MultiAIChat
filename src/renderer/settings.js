@@ -109,13 +109,18 @@ class SettingsPanel {
 
     document.getElementById('btn-export').addEventListener('click', async () => {
       const config = await window.api.exportConfig();
+      const parsed = JSON.parse(config);
+      const siteCount = parsed.sites?.length || 0;
+
       const blob = new Blob([config], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'ai-workspace-config.json';
+      a.download = `ai-workspace-config-${new Date().toISOString().slice(0,10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
+
+      this.showToast(`已导出 ${siteCount} 个站点配置（不含账号登录信息）`);
     });
 
     document.getElementById('btn-import').addEventListener('click', () => {
@@ -127,10 +132,12 @@ class SettingsPanel {
         if (!file) return;
         const text = await file.text();
         try {
+          const data = JSON.parse(text);
+          const siteCount = data.sites?.length || 0;
           await window.api.importConfig(text);
           this.settings = await window.api.getSettings();
           this.loadSettings();
-          alert('配置已导入');
+          this.showToast(`已导入 ${siteCount} 个站点配置，请重新打开站点管理查看`);
         } catch (err) {
           alert('导入失败: ' + err.message);
         }
@@ -204,5 +211,18 @@ class SettingsPanel {
 
     await window.api.updateSettings(settings);
     this.settings = { ...this.settings, ...settings };
+  }
+
+  showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      toast.classList.add('toast-fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
   }
 }

@@ -116,16 +116,55 @@ function setActiveState(siteId, accountId) {
 }
 
 function exportConfig() {
+  const sites = getSites();
+
+  // Strip account details - only export site metadata
+  const exportSites = sites.map(site => ({
+    id: site.id,
+    name: site.name,
+    url: site.url,
+    icon: site.icon,
+    color: site.color,
+    shortcut: site.shortcut || null,
+    proxy: site.proxy || '',
+    order: site.order,
+    // Export account count and labels only (no partition/session data)
+    accountCount: site.accounts?.length || 1,
+    accountLabels: site.accounts?.map(a => a.label) || ['默认']
+  }));
+
   return JSON.stringify({
-    sites: getSites(),
+    version: 1,
+    exportDate: new Date().toISOString(),
+    sites: exportSites,
     settings: getSettings()
   }, null, 2);
 }
 
 function importConfig(jsonString) {
   const data = JSON.parse(jsonString);
-  if (data.sites) configStore.set('sites', data.sites);
-  if (data.settings) configStore.set('settings', { ...getSettings(), ...data.settings });
+
+  if (data.sites) {
+    const importedSites = data.sites.map(site => {
+      // If site has no accounts (new export format), create default account
+      if (!site.accounts || site.accounts.length === 0) {
+        const accountLabels = site.accountLabels || ['默认'];
+        const accounts = accountLabels.map((label, index) => ({
+          id: `${site.id}-${index}`,
+          label: label,
+          partition: `persist:${site.id}-${index}`,
+          isDefault: index === 0
+        }));
+        return { ...site, accounts };
+      }
+      return site;
+    });
+    configStore.set('sites', importedSites);
+  }
+
+  if (data.settings) {
+    configStore.set('settings', { ...getSettings(), ...data.settings });
+  }
 }
 
 function getConfigPath() {

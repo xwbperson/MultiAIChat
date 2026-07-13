@@ -19,4 +19,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sidebar = new Sidebar();
   const toolbar = new Toolbar();
+  const settingsPanel = new SettingsPanel();
 });

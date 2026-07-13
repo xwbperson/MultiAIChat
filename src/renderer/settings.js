@@ -112,11 +112,16 @@ class SettingsPanel {
       const parsed = JSON.parse(config);
       const siteCount = parsed.sites?.length || 0;
 
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0,10);
+      const timeStr = now.toTimeString().slice(0,5).replace(':', '');
+      const filename = `ai-workspace-config-${dateStr}-${timeStr}.json`;
+
       const blob = new Blob([config], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ai-workspace-config-${new Date().toISOString().slice(0,10)}.json`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
 

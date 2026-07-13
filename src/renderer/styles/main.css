@@ -683,3 +683,80 @@ html, body {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* Edit Dialog */
+.edit-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  backdrop-filter: blur(4px);
+}
+
+.edit-dialog {
+  width: 400px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.edit-dialog h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.edit-field {
+  margin-bottom: 12px;
+}
+
+.edit-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.edit-field input,
+.edit-field select {
+  width: 100%;
+  height: 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.edit-field input:focus,
+.edit-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.edit-field input[type="color"] {
+  height: 40px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.settings-action-btn.primary {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.settings-action-btn.primary:hover {
+  background: var(--accent-hover);
+}

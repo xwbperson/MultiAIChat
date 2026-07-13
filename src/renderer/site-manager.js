@@ -117,16 +117,77 @@ class SiteManager {
     const site = sites.find(s => s.id === siteId);
     if (!site) return;
 
-    const name = prompt('站点名称:', site.name);
-    if (!name) return;
-    const url = prompt('站点 URL:', site.url);
-    if (!url) return;
-    const proxy = prompt('代理地址 (留空使用默认):', site.proxy || '');
+    const dialog = document.createElement('div');
+    dialog.className = 'edit-dialog-overlay';
+    dialog.innerHTML = `
+      <div class="edit-dialog">
+        <h3>编辑站点 - ${site.name}</h3>
+        <div class="edit-field">
+          <label>名称</label>
+          <input type="text" id="edit-name" value="${site.name}">
+        </div>
+        <div class="edit-field">
+          <label>URL</label>
+          <input type="text" id="edit-url" value="${site.url}">
+        </div>
+        <div class="edit-field">
+          <label>图标 (emoji)</label>
+          <input type="text" id="edit-icon" value="${site.icon}">
+        </div>
+        <div class="edit-field">
+          <label>颜色</label>
+          <input type="color" id="edit-color" value="${site.color}">
+        </div>
+        <div class="edit-field">
+          <label>代理</label>
+          <select id="edit-proxy-mode">
+            <option value="" ${!site.proxy ? 'selected' : ''}>使用默认</option>
+            <option value="direct" ${site.proxy === 'direct' ? 'selected' : ''}>直连</option>
+            <option value="system" ${site.proxy === 'system' ? 'selected' : ''}>系统代理</option>
+            <option value="custom" ${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? 'selected' : ''}>自定义</option>
+          </select>
+          <input type="text" id="edit-proxy" value="${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? site.proxy : ''}" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" style="display:${site.proxy && site.proxy !== 'direct' && site.proxy !== 'system' ? 'block' : 'none'}">
+        </div>
+        <div class="edit-actions">
+          <button id="edit-cancel" class="settings-action-btn">取消</button>
+          <button id="edit-save" class="settings-action-btn primary">保存</button>
+        </div>
+      </div>
+    `;
 
-    await window.api.updateSite(siteId, { name, url, proxy });
-    await this.renderSiteList();
-    await this.sidebar.loadSites();
-    this.sidebar.render();
+    document.body.appendChild(dialog);
+
+    dialog.querySelector('#edit-proxy-mode').addEventListener('change', (e) => {
+      dialog.querySelector('#edit-proxy').style.display =
+        e.target.value === 'custom' ? 'block' : 'none';
+    });
+
+    dialog.querySelector('#edit-cancel').addEventListener('click', () => dialog.remove());
+
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.remove();
+    });
+
+    dialog.querySelector('#edit-save').addEventListener('click', async () => {
+      const proxyMode = dialog.querySelector('#edit-proxy-mode').value;
+      let proxy = '';
+      if (proxyMode === 'direct') proxy = 'direct';
+      else if (proxyMode === 'system') proxy = 'system';
+      else if (proxyMode === 'custom') proxy = dialog.querySelector('#edit-proxy').value.trim();
+
+      await window.api.updateSite(siteId, {
+        name: dialog.querySelector('#edit-name').value,
+        url: dialog.querySelector('#edit-url').value,
+        icon: dialog.querySelector('#edit-icon').value,
+        color: dialog.querySelector('#edit-color').value,
+        proxy
+      });
+
+      dialog.remove();
+      await this.renderSiteList();
+      await this.sidebar.loadSites();
+      this.sidebar.render();
+    });
   }
 
   async deleteSite(siteId) {

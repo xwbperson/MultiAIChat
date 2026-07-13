@@ -104,6 +104,44 @@ class Sidebar {
       }
     });
 
+    // Drag and drop
+    wrapper.draggable = true;
+    wrapper.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', site.id);
+      wrapper.classList.add('dragging');
+    });
+    wrapper.addEventListener('dragend', () => {
+      wrapper.classList.remove('dragging');
+    });
+    wrapper.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      wrapper.classList.add('drag-over');
+    });
+    wrapper.addEventListener('dragleave', () => {
+      wrapper.classList.remove('drag-over');
+    });
+    wrapper.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      wrapper.classList.remove('drag-over');
+      const draggedId = e.dataTransfer.getData('text/plain');
+      if (draggedId === site.id) return;
+
+      const sites = await window.api.getSites();
+      const draggedIndex = sites.findIndex(s => s.id === draggedId);
+      const targetIndex = sites.findIndex(s => s.id === site.id);
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      const [dragged] = sites.splice(draggedIndex, 1);
+      sites.splice(targetIndex, 0, dragged);
+
+      for (let i = 0; i < sites.length; i++) {
+        await window.api.updateSite(sites[i].id, { order: i });
+      }
+
+      await this.loadSites();
+      this.render();
+    });
+
     wrapper.appendChild(btn);
 
     if (isExpanded && hasMultipleAccounts) {

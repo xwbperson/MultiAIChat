@@ -136,6 +136,14 @@ html, body {
   margin: 2px 8px;
 }
 
+.site-item.dragging {
+  opacity: 0.5;
+}
+
+.site-item.drag-over {
+  border-top: 2px solid var(--accent);
+}
+
 .site-btn {
   width: 100%;
   display: flex;

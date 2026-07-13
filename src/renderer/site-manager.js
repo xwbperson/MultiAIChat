@@ -336,8 +336,14 @@ class SiteManager {
           <input type="text" id="add-url" placeholder="https://chat.openai.com" value="https://">
         </div>
         <div class="edit-field">
-          <label>图标 (emoji)</label>
-          <input type="text" id="add-icon" placeholder="🌐" value="🌐">
+          <label>图标 (emoji 或 URL)</label>
+          <div class="icon-input-row">
+            <input type="text" id="add-icon" placeholder="🌐 或 https://...">
+            <button id="add-detect-favicon" class="settings-action-btn small" title="自动检测网站图标">🔍</button>
+          </div>
+          <div class="favicon-preview" id="add-favicon-preview">
+            <span class="favicon-status">输入 URL 后点击 🔍 自动检测</span>
+          </div>
         </div>
         <div class="edit-field">
           <label>颜色</label>
@@ -418,6 +424,40 @@ class SiteManager {
         e.target.value === 'custom' ? 'block' : 'none';
     });
 
+    // Auto-detect favicon button
+    dialog.querySelector('#add-detect-favicon').addEventListener('click', async () => {
+      const url = dialog.querySelector('#add-url').value;
+      if (!url || url === 'https://') {
+        alert('请先输入站点 URL');
+        return;
+      }
+
+      const proxyMode = dialog.querySelector('#add-proxy-mode').value;
+      let proxyConfig = '';
+      if (proxyMode === 'direct') proxyConfig = 'direct';
+      else if (proxyMode === 'system') proxyConfig = 'system';
+      else if (proxyMode === 'custom') proxyConfig = dialog.querySelector('#add-proxy').value.trim();
+
+      try {
+        const domain = new URL(url).hostname;
+        const preview = dialog.querySelector('#add-favicon-preview');
+        preview.innerHTML = '<span class="favicon-status">检测中...</span>';
+
+        const result = await window.api.detectFaviconFromDomain(domain, proxyConfig);
+        if (result.success) {
+          dialog.querySelector('#add-icon').value = result.url;
+          preview.innerHTML = `
+            <img src="${result.url}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
+            <span class="favicon-status">已检测到</span>
+          `;
+        } else {
+          preview.innerHTML = '<span class="favicon-status">未检测到，使用默认图标</span>';
+        }
+      } catch (err) {
+        alert('URL 格式错误');
+      }
+    });
+
     // Quick add buttons
     dialog.querySelectorAll('.quick-add-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -439,7 +479,7 @@ class SiteManager {
     dialog.querySelector('#add-save').addEventListener('click', async () => {
       const name = dialog.querySelector('#add-name').value.trim();
       const url = dialog.querySelector('#add-url').value.trim();
-      const icon = dialog.querySelector('#add-icon').value.trim() || '🌐';
+      const iconValue = dialog.querySelector('#add-icon').value.trim() || '🌐';
       const color = dialog.querySelector('#add-color').value;
       const proxyMode = dialog.querySelector('#add-proxy-mode').value;
       let proxy = '';
@@ -456,8 +496,24 @@ class SiteManager {
         return;
       }
 
+      const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
+
       try {
-        await window.api.addSite({ name, url, icon, color, proxy });
+        // Add site first to get the ID
+        const newSite = await window.api.addSite({
+          name,
+          url,
+          icon: isUrl ? '🌐' : iconValue,
+          color,
+          proxy
+        });
+
+        // If icon is a URL, fetch and save locally
+        if (isUrl && newSite?.id) {
+          await window.api.fetchFavicon(iconValue, newSite.id, proxy);
+          await window.api.updateSite(newSite.id, { faviconUrl: iconValue });
+        }
+
         dialog.remove();
         await this.renderSiteList();
         await this.sidebar.loadSites();
@@ -533,17 +589,26 @@ class SiteManager {
         return;
       }
 
+      const proxyMode = dialog.querySelector('#edit-proxy-mode').value;
+      let proxyConfig = '';
+      if (proxyMode === 'direct') proxyConfig = 'direct';
+      else if (proxyMode === 'system') proxyConfig = 'system';
+      else if (proxyMode === 'custom') proxyConfig = dialog.querySelector('#edit-proxy').value.trim();
+
       try {
         const domain = new URL(url).hostname;
-        const result = await window.api.detectFaviconFromDomain(domain);
+        const preview = dialog.querySelector('#favicon-preview');
+        preview.innerHTML = '<span class="favicon-status">检测中...</span>';
+
+        const result = await window.api.detectFaviconFromDomain(domain, proxyConfig);
         if (result.success) {
           dialog.querySelector('#edit-icon').value = result.url;
-          dialog.querySelector('#favicon-preview').innerHTML = `
+          preview.innerHTML = `
             <img src="${result.url}" onerror="this.style.display='none'" style="max-width:32px;max-height:32px;">
             <span class="favicon-status">已检测到</span>
           `;
         } else {
-          alert('未检测到网站图标');
+          preview.innerHTML = '<span class="favicon-status">未检测到</span>';
         }
       } catch (err) {
         alert('URL 格式错误');
@@ -571,9 +636,9 @@ class SiteManager {
       const iconValue = dialog.querySelector('#edit-icon').value.trim();
       const isUrl = iconValue.startsWith('http://') || iconValue.startsWith('https://');
 
-      // If icon is a URL, fetch and save locally
+      // If icon is a URL, fetch and save locally (using proxy if configured)
       if (isUrl) {
-        const result = await window.api.fetchFavicon(iconValue, siteId);
+        const result = await window.api.fetchFavicon(iconValue, siteId, proxy);
         if (result.success) {
           await window.api.updateSite(siteId, {
             faviconUrl: iconValue,

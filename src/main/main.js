@@ -332,9 +332,9 @@ function createWindow() {
   });
 
   // Favicon IPC handlers
-  ipcMain.handle('favicon:fetch', async (e, url, siteId) => {
+  ipcMain.handle('favicon:fetch', async (e, url, siteId, proxyConfig) => {
     try {
-      const localUrl = await faviconManager.fetchAndSave(url, siteId);
+      const localUrl = await faviconManager.fetchAndSave(url, siteId, proxyConfig);
       return { success: true, localUrl };
     } catch (err) {
       return { success: false, error: err.message };
@@ -354,9 +354,9 @@ function createWindow() {
     return { success: true };
   });
 
-  ipcMain.handle('favicon:detectFromDomain', async (e, domain) => {
+  ipcMain.handle('favicon:detectFromDomain', async (e, domain, proxyConfig) => {
     try {
-      const faviconUrl = await faviconManager.fetchFaviconFromDomain(domain);
+      const faviconUrl = await faviconManager.fetchFaviconFromDomain(domain, proxyConfig);
       return { success: true, url: faviconUrl };
     } catch (err) {
       return { success: false, error: err.message };

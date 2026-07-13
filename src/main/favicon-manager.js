@@ -1,4 +1,4 @@
-const { app, net } = require('electron');
+const { app, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -29,14 +29,29 @@ class FaviconManager {
     return null;
   }
 
-  async fetchAndSave(url, siteId) {
+  async fetchAndSave(url, siteId, proxyConfig) {
     return new Promise((resolve, reject) => {
       if (!url || !siteId) {
         reject(new Error('URL and siteId are required'));
         return;
       }
 
-      const request = net.request(url);
+      // Create a session with proxy if specified
+      let ses = session.defaultSession;
+      if (proxyConfig && proxyConfig !== 'direct') {
+        const partition = `favicon-${siteId}`;
+        ses = session.fromPartition(partition);
+        if (proxyConfig === 'system') {
+          ses.setProxy({ mode: 'system' });
+        } else {
+          ses.setProxy({
+            mode: 'fixed_servers',
+            proxyRules: proxyConfig.startsWith('socks') ? proxyConfig : `http=${proxyConfig};https=${proxyConfig}`
+          });
+        }
+      }
+
+      const request = ses ? net.request({ url, session: ses }) : net.request(url);
       const chunks = [];
 
       request.on('response', (response) => {
@@ -73,7 +88,7 @@ class FaviconManager {
     });
   }
 
-  async fetchFaviconFromDomain(domain) {
+  async fetchFaviconFromDomain(domain, proxyConfig) {
     // Try common favicon locations
     const urls = [
       `https://${domain}/favicon.ico`,
@@ -84,7 +99,7 @@ class FaviconManager {
 
     for (const url of urls) {
       try {
-        const result = await this.tryFetch(url);
+        const result = await this.tryFetch(url, proxyConfig);
         if (result) return url;
       } catch (err) {
         // Continue to next URL
@@ -95,9 +110,23 @@ class FaviconManager {
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
   }
 
-  async tryFetch(url) {
+  async tryFetch(url, proxyConfig) {
     return new Promise((resolve, reject) => {
-      const request = net.request(url);
+      // Create a session with proxy if specified
+      let ses = session.defaultSession;
+      if (proxyConfig && proxyConfig !== 'direct') {
+        ses = session.fromPartition('favicon-detect');
+        if (proxyConfig === 'system') {
+          ses.setProxy({ mode: 'system' });
+        } else {
+          ses.setProxy({
+            mode: 'fixed_servers',
+            proxyRules: proxyConfig.startsWith('socks') ? proxyConfig : `http=${proxyConfig};https=${proxyConfig}`
+          });
+        }
+      }
+
+      const request = ses ? net.request({ url, session: ses }) : net.request(url);
 
       request.on('response', (response) => {
         if (response.statusCode === 200) {

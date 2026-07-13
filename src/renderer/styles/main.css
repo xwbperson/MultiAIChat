@@ -88,8 +88,204 @@ html, body {
   grid-row: 2;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+#site-list {
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 8px 0;
+}
+
+#site-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+#site-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+#sidebar-bottom {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.sidebar-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.site-item {
+  margin: 2px 8px;
+}
+
+.site-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.site-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.site-btn.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.site-icon-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  transition: border-color 0.15s;
+}
+
+.site-btn.active .site-icon-wrapper {
+  border-color: var(--accent);
+}
+
+.site-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+  background: var(--success);
+}
+
+.status-dot.hibernated {
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.status-dot.idle {
+  background: var(--warning);
+}
+
+.site-name {
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.expand-icon {
+  font-size: 8px;
+  margin-top: 2px;
+}
+
+.site-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--warning);
+  color: var(--bg-primary);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-list {
+  margin: 4px 0;
+  padding: 4px 12px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+}
+
+.account-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.account-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.account-btn.active {
+  background: var(--bg-surface);
+  color: var(--accent);
+}
+
+.account-btn.add-account {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.account-btn.add-account:hover {
+  opacity: 1;
+}
+
+.account-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.account-dot.hibernated {
+  background: var(--text-secondary);
+  opacity: 0.5;
 }
 
 #main {

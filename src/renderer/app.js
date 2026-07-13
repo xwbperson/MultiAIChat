@@ -16,4 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.api.onMaximizeChanged(updateMaximizeButton);
   window.api.isMaximized().then(updateMaximizeButton);
+
+  const sidebar = new Sidebar();
 });

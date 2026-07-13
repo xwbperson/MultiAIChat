@@ -65,6 +65,7 @@ function createWindow() {
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
   ipcMain.handle('site:update', (e, id, data) => configStore.updateSite(id, data));
   ipcMain.handle('site:delete', (e, id) => configStore.deleteSite(id));
+  ipcMain.handle('site:addAccount', (e, siteId, account) => configStore.addAccount(siteId, account));
 
   ipcMain.handle('settings:get', () => configStore.getSettings());
   ipcMain.handle('settings:update', (e, settings) => configStore.updateSettings(settings));

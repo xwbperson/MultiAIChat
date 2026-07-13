@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('api', {
   setProxy: (siteId, proxy) => ipcRenderer.invoke('proxy:set', siteId, proxy),
   getProxy: (siteId) => ipcRenderer.invoke('proxy:get', siteId),
 
+  // Navigation
+  goBack: () => ipcRenderer.invoke('webview:goBack'),
+  goForward: () => ipcRenderer.invoke('webview:goForward'),
+  refresh: () => ipcRenderer.invoke('webview:refresh'),
+  forceRefresh: () => ipcRenderer.invoke('webview:forceRefresh'),
+  setZoom: (level) => ipcRenderer.invoke('webview:setZoom', level),
+
   // Hibernate
   getHibernateStatus: () => ipcRenderer.invoke('hibernate:status'),
   hibernateSite: (siteId) => ipcRenderer.invoke('hibernate:site', siteId),
@@ -28,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   // Config
   exportConfig: () => ipcRenderer.invoke('config:export'),
   importConfig: (data) => ipcRenderer.invoke('config:import', data),
+  clearAllSiteData: () => ipcRenderer.invoke('config:clearAllSiteData'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
 

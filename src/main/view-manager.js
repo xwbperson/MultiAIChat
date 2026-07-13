@@ -140,6 +140,11 @@ class ViewManager {
     return this.views.get(this.getKey(siteId, accountId));
   }
 
+  getActiveView() {
+    if (!this.activeKey) return null;
+    return this.views.get(this.activeKey) || null;
+  }
+
   getAllViews() {
     const result = [];
     for (const [key, data] of this.views) {

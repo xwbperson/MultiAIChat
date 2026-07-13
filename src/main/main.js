@@ -101,6 +101,17 @@ function createWindow() {
     mainWindow.webContents.send('window:maximized', false);
   });
 
+  // Proxy IPC handlers
+  ipcMain.handle('proxy:set', async (e, siteId, proxy) => {
+    configStore.updateSite(siteId, { proxy });
+    return { success: true };
+  });
+  ipcMain.handle('proxy:get', (e, siteId) => {
+    const sites = configStore.getSites();
+    const site = sites.find(s => s.id === siteId);
+    return site?.proxy || '';
+  });
+
   // Config store IPC handlers
   ipcMain.handle('site:getAll', () => configStore.getSites());
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
@@ -124,6 +135,52 @@ function createWindow() {
 
   ipcMain.handle('config:export', () => configStore.exportConfig());
   ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
+  ipcMain.handle('config:clearAllSiteData', async () => {
+    const { clearSessionData } = require('./session-manager');
+    const sites = configStore.getSites();
+    for (const site of sites) {
+      for (const account of site.accounts) {
+        await clearSessionData(account.partition);
+      }
+    }
+    for (const site of sites) {
+      configStore.deleteSite(site.id);
+    }
+    viewManager.removeAll();
+    return { success: true };
+  });
+
+  // Navigation IPC handlers
+  ipcMain.handle('webview:goBack', () => {
+    const activeView = viewManager.getActiveView();
+    if (activeView?.view?.webContents?.canGoBack()) {
+      activeView.view.webContents.goBack();
+    }
+  });
+  ipcMain.handle('webview:goForward', () => {
+    const activeView = viewManager.getActiveView();
+    if (activeView?.view?.webContents?.canGoForward()) {
+      activeView.view.webContents.goForward();
+    }
+  });
+  ipcMain.handle('webview:refresh', () => {
+    const activeView = viewManager.getActiveView();
+    if (activeView?.view?.webContents) {
+      activeView.view.webContents.reload();
+    }
+  });
+  ipcMain.handle('webview:forceRefresh', () => {
+    const activeView = viewManager.getActiveView();
+    if (activeView?.view?.webContents) {
+      activeView.view.webContents.reloadIgnoringCache();
+    }
+  });
+  ipcMain.handle('webview:setZoom', (e, level) => {
+    const activeView = viewManager.getActiveView();
+    if (activeView?.view?.webContents) {
+      activeView.view.webContents.setZoomLevel(level);
+    }
+  });
 
   // Tray menu event handlers
   ipcMain.on('open:siteManager', () => {

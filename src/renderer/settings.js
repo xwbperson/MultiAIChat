@@ -138,6 +138,16 @@ class SettingsPanel {
       input.click();
     });
 
+    document.getElementById('btn-clear-data').addEventListener('click', async () => {
+      if (!confirm('确定要清除全部站点数据吗？此操作不可撤销。')) return;
+      try {
+        await window.api.clearAllSiteData();
+        alert('站点数据已清除，重启应用后生效');
+      } catch (err) {
+        alert('清除失败: ' + err.message);
+      }
+    });
+
     const inputs = document.querySelectorAll('.settings-content input, .settings-content select');
     inputs.forEach(input => {
       input.addEventListener('change', () => this.saveSettings());

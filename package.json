@@ -5,8 +5,9 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --publish never",
+    "build:publish": "electron-builder --win --publish always"
   },
   "build": {
     "appId": "com.aiworkspace.app",
@@ -23,10 +24,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "electron": "^43.1.0",
     "electron-store": "^8.2.0"
   },
   "devDependencies": {
+    "electron": "^43.1.0",
     "electron-builder": "^26.15.3"
   }
 }

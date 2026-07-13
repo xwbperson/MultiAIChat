@@ -24,8 +24,30 @@ class TrayManager {
   }
 
   getTrayIcon() {
-    const icon = nativeImage.createEmpty();
-    return icon;
+    // Create a simple 16x16 colored icon for the tray
+    const size = 16;
+    const canvas = Buffer.alloc(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const offset = (y * size + x) * 4;
+        // Create a simple "AI" pattern - blue circle
+        const cx = x - size / 2;
+        const cy = y - size / 2;
+        const dist = Math.sqrt(cx * cx + cy * cy);
+        if (dist < size / 2 - 1) {
+          canvas[offset] = 0x89;     // R
+          canvas[offset + 1] = 0xb4; // G
+          canvas[offset + 2] = 0xfa; // B
+          canvas[offset + 3] = 0xff; // A
+        } else {
+          canvas[offset] = 0x00;
+          canvas[offset + 1] = 0x00;
+          canvas[offset + 2] = 0x00;
+          canvas[offset + 3] = 0x00;
+        }
+      }
+    }
+    return nativeImage.createFromBuffer(canvas, { width: size, height: size });
   }
 
   updateContextMenu() {

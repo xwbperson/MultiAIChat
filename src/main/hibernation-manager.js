@@ -105,7 +105,7 @@ class HibernationManager {
     const views = this.viewManager.getAllViews();
     return {
       total: views.length,
-      active: views.filter(v => v.state === 'active').length,
+      active: views.filter(v => v.state !== 'hibernated').length,
       idle: views.filter(v => v.state === 'idle').length,
       hibernated: views.filter(v => v.state === 'hibernated').length,
       views: views.map(v => ({

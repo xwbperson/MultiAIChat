@@ -95,6 +95,38 @@ async function main() {
       await page.locator('#settings-close').click();
     }
 
+    if (selectedCase === 'all' || selectedCase === 'active-count') {
+      await page.locator('#statusbar').getByText(/活跃: 1/).waitFor({ timeout: 3000 });
+      result.statusAfterFirstView = await page.locator('#statusbar').innerText();
+
+      const firstSiteId = await page.locator('.site-item').first().getAttribute('data-site-id');
+      const secondSite = page.locator('.site-item').nth(1);
+      const secondSiteId = await secondSite.getAttribute('data-site-id');
+      const secondSiteName = await secondSite.locator('.site-name').innerText();
+      await secondSite.locator('.site-btn').click();
+      await page.waitForFunction(async siteId => (
+        (await window.api.getActiveState()).siteId === siteId
+      ), secondSiteId);
+      await page.waitForTimeout(250);
+      result.statusImmediatelyAfterSecondView = await page.locator('#statusbar').innerText();
+      result.statusUpdatesOnActivation = (
+        result.statusImmediatelyAfterSecondView.includes(secondSiteName)
+        && /活跃: 2/.test(result.statusImmediatelyAfterSecondView)
+      );
+      await page.locator('#statusbar').getByText(new RegExp(secondSiteName)).waitFor({ timeout: 3000 });
+
+      result.statusAfterSecondView = await page.locator('#statusbar').innerText();
+      result.activeCountReflectsLoadedViews = /活跃: 2/.test(result.statusAfterSecondView);
+
+      await page.evaluate(siteId => window.api.hibernateSite(siteId), firstSiteId);
+      await page.locator('#statusbar').getByText(/活跃: 1 \| 休眠: 1/).waitFor({ timeout: 3000 });
+      result.statusAfterHibernate = await page.locator('#statusbar').innerText();
+      result.activeCountUpdatesAfterHibernate = /活跃: 1 \| 休眠: 1/.test(result.statusAfterHibernate);
+      failed ||= !result.activeCountReflectsLoadedViews
+        || !result.statusUpdatesOnActivation
+        || !result.activeCountUpdatesAfterHibernate;
+    }
+
     if (selectedCase === 'all' || selectedCase === 'site-order') {
       await page.locator('button[aria-label="打开站点管理"]').click();
       await page.locator('#site-manager-overlay:not(.hidden)').waitFor();

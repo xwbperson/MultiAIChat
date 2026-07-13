@@ -72,7 +72,7 @@ npm run dev
 - `src/main/`：窗口、WebContentsView、Session、代理、休眠、配置和 IPC。
 - `src/renderer/`：侧栏、工具栏、设置、站点管理和界面样式。
 - `test/`：配置仓库、会话代理、LRU、快捷键和休眠恢复单元测试。
-- `scripts/renderer-ui-check.cjs`：设置滚动、站点编辑、连续拖拽排序和账号操作的 Electron UI 回归测试。
+- `scripts/renderer-ui-check.cjs`：设置滚动、活跃/休眠计数同步、站点编辑、连续拖拽排序和账号操作的 Electron UI 回归测试。
 - `docs/`：设计说明、功能完成情况和实现计划。
 
 ## 数据与隐私

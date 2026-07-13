@@ -21,6 +21,8 @@ class StatusBar {
 
   init() {
     this.update();
+    window.api.onSiteActivated?.(() => this.update());
+    window.api.onHibernateStatus?.(() => this.update());
     this.updateInterval = setInterval(() => this.update(), 5000);
   }
 

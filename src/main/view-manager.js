@@ -82,9 +82,12 @@ class ViewManager {
   async switchTo(siteId, accountId) {
     const key = this.getKey(siteId, accountId);
 
+    // Hide current active view (if it exists and has a view)
     if (this.activeKey && this.views.has(this.activeKey)) {
       const current = this.views.get(this.activeKey);
-      current.view.setVisible(false);
+      if (current.view) {
+        current.view.setVisible(false);
+      }
       if (current.state === 'active') {
         current.state = 'idle';
         current.lastActive = Date.now();
@@ -96,12 +99,17 @@ class ViewManager {
       return null;
     }
 
-    viewData.view.setVisible(true);
+    // Show the target view (if it has a view)
+    if (viewData.view) {
+      viewData.view.setVisible(true);
+    }
     viewData.state = 'active';
     viewData.lastActive = Date.now();
     this.activeKey = key;
 
-    this.mainWindow.contentView.addChildView(viewData.view);
+    if (viewData.view) {
+      this.mainWindow.contentView.addChildView(viewData.view);
+    }
 
     return viewData;
   }

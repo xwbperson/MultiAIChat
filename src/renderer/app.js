@@ -81,13 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', async (e) => {
-    // Ctrl+1-9: Switch to site by index
+    // Ctrl+1-9: Switch to site by custom shortcut
     if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
       e.preventDefault();
-      const index = parseInt(e.key) - 1;
+      const shortcut = `Ctrl+${e.key}`;
       const sites = await window.api.getSites();
-      if (sites[index]) {
-        const site = sites[index];
+      const site = sites.find(s => s.shortcut === shortcut);
+      if (site) {
         const defaultAccount = site.accounts.find(a => a.isDefault) || site.accounts[0];
         sidebar.selectSite(site.id, defaultAccount.id);
       }

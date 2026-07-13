@@ -79,6 +79,14 @@ class SiteManager {
             <span class="detail-value">${site.proxy || '默认'}</span>
           </div>
           <div class="site-detail">
+            <span class="detail-label">快捷键:</span>
+            <div class="shortcut-controls">
+              <span class="shortcut-display ${site.shortcut ? 'has-shortcut' : 'no-shortcut'}">${site.shortcut || '未设置'}</span>
+              <button class="shortcut-edit-btn" data-site-id="${site.id}" data-shortcut="${site.shortcut || ''}" title="修改快捷键">✎</button>
+              ${site.shortcut ? `<button class="shortcut-remove-btn" data-site-id="${site.id}" title="删除快捷键">×</button>` : ''}
+            </div>
+          </div>
+          <div class="site-detail">
             <span class="detail-label">账号:</span>
             <div class="account-list-inline">
               ${site.accounts.map(acc => `
@@ -121,6 +129,20 @@ class SiteManager {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.renameAccount(btn.dataset.siteId, btn.dataset.accountId, btn.dataset.label);
+      });
+    });
+
+    container.querySelectorAll('.shortcut-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.editShortcut(btn.dataset.siteId, btn.dataset.shortcut);
+      });
+    });
+
+    container.querySelectorAll('.shortcut-remove-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeShortcut(btn.dataset.siteId);
       });
     });
   }
@@ -533,6 +555,71 @@ class SiteManager {
       this.sidebar.render();
     } catch (err) {
       alert('重命名失败: ' + err.message);
+    }
+  }
+
+  async editShortcut(siteId, currentShortcut) {
+    const sites = await window.api.getSites();
+    const site = sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    // Get all used shortcuts
+    const usedShortcuts = sites
+      .filter(s => s.shortcut && s.id !== siteId)
+      .map(s => s.shortcut);
+
+    // Create shortcut selection dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'edit-dialog-overlay';
+    dialog.innerHTML = `
+      <div class="edit-dialog">
+        <h3>设置快捷键 - ${site.name}</h3>
+        <div class="edit-field">
+          <label>选择快捷键</label>
+          <select id="shortcut-select">
+            <option value="">不使用快捷键</option>
+            ${[1,2,3,4,5,6,7,8,9].map(n => {
+              const key = `Ctrl+${n}`;
+              const isUsed = usedShortcuts.includes(key);
+              const isCurrent = currentShortcut === key;
+              return `<option value="${key}" ${isCurrent ? 'selected' : ''} ${isUsed ? 'disabled' : ''}>${key} ${isUsed ? '(已使用)' : ''}</option>`;
+            }).join('')}
+          </select>
+        </div>
+        <div class="edit-actions">
+          <button id="shortcut-cancel" class="settings-action-btn">取消</button>
+          <button id="shortcut-save" class="settings-action-btn primary">保存</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    // Cancel
+    dialog.querySelector('#shortcut-cancel').addEventListener('click', () => dialog.remove());
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.remove();
+    });
+
+    // Save
+    dialog.querySelector('#shortcut-save').addEventListener('click', async () => {
+      const shortcut = dialog.querySelector('#shortcut-select').value;
+      try {
+        await window.api.updateSite(siteId, { shortcut: shortcut || null });
+        dialog.remove();
+        await this.renderSiteList();
+      } catch (err) {
+        alert('保存失败: ' + err.message);
+      }
+    });
+  }
+
+  async removeShortcut(siteId) {
+    try {
+      await window.api.updateSite(siteId, { shortcut: null });
+      await this.renderSiteList();
+    } catch (err) {
+      alert('删除快捷键失败: ' + err.message);
     }
   }
 }

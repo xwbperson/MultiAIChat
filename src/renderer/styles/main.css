@@ -728,6 +728,58 @@ html, body {
   word-break: break-all;
 }
 
+/* Shortcut controls */
+.shortcut-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcut-display {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.shortcut-display.has-shortcut {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.shortcut-display.no-shortcut {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.shortcut-edit-btn,
+.shortcut-remove-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.shortcut-edit-btn:hover,
+.shortcut-remove-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.shortcut-remove-btn:hover {
+  color: var(--danger);
+}
+
 .account-list-inline {
   display: flex;
   flex-wrap: wrap;

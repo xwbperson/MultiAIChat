@@ -2,6 +2,8 @@ const { app, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+const REQUEST_TIMEOUT_MS = 15000;
+
 class FaviconManager {
   constructor() {
     this.faviconDir = path.join(app.getPath('userData'), 'favicons');
@@ -42,12 +44,19 @@ class FaviconManager {
       const chunks = [];
       let size = 0;
       let settled = false;
+      let timeoutId;
 
       const fail = (error) => {
         if (settled) return;
         settled = true;
+        clearTimeout(timeoutId);
         reject(error);
       };
+
+      timeoutId = setTimeout(() => {
+        fail(new Error('Favicon request timed out'));
+        request.abort();
+      }, REQUEST_TIMEOUT_MS);
 
       request.on('response', (response) => {
         if (response.statusCode !== 200) {
@@ -74,6 +83,7 @@ class FaviconManager {
             const localPath = this.getLocalPath(siteId);
             fs.writeFileSync(localPath, buffer);
             settled = true;
+            clearTimeout(timeoutId);
             resolve(this.getLocalUrl(siteId));
           } catch (err) {
             fail(err);
@@ -117,18 +127,32 @@ class FaviconManager {
     const ses = await this.getRequestSession('favicon-detect', proxyConfig);
     return new Promise((resolve, reject) => {
       const request = net.request({ url: remoteUrl, session: ses });
+      let settled = false;
+      let timeoutId;
+
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        callback(value);
+      };
+
+      timeoutId = setTimeout(() => {
+        finish(reject, new Error('Favicon detection timed out'));
+        request.abort();
+      }, REQUEST_TIMEOUT_MS);
 
       request.on('response', (response) => {
         if (response.statusCode === 200) {
-          resolve(url);
+          finish(resolve, url);
         } else {
-          reject(new Error(`HTTP ${response.statusCode}`));
+          finish(reject, new Error(`HTTP ${response.statusCode}`));
         }
         response.destroy();
       });
 
       request.on('error', (err) => {
-        reject(err);
+        finish(reject, err);
       });
 
       request.end();

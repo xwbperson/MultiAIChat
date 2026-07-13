@@ -9,6 +9,7 @@ const DEFAULT_SITES = [
     color: '#10a37f',
     icon: '🤖',
     faviconUrl: GOOGLE_FAVICON('chatgpt.com'),
+    faviconSourceUrl: GOOGLE_FAVICON('chatgpt.com'),
     proxy: '',
     order: 0,
     accounts: [
@@ -22,6 +23,7 @@ const DEFAULT_SITES = [
     color: '#d4a574',
     icon: '🧠',
     faviconUrl: GOOGLE_FAVICON('claude.ai'),
+    faviconSourceUrl: GOOGLE_FAVICON('claude.ai'),
     proxy: '',
     order: 1,
     accounts: [
@@ -35,6 +37,7 @@ const DEFAULT_SITES = [
     color: '#4d6bfe',
     icon: '🔷',
     faviconUrl: GOOGLE_FAVICON('deepseek.com'),
+    faviconSourceUrl: GOOGLE_FAVICON('deepseek.com'),
     proxy: '',
     order: 2,
     accounts: [
@@ -48,6 +51,7 @@ const DEFAULT_SITES = [
     color: '#6236d9',
     icon: '🌙',
     faviconUrl: GOOGLE_FAVICON('kimi.moonshot.cn'),
+    faviconSourceUrl: GOOGLE_FAVICON('kimi.moonshot.cn'),
     proxy: '',
     order: 3,
     accounts: [
@@ -61,6 +65,7 @@ const DEFAULT_SITES = [
     color: '#fe694a',
     icon: '🤖',
     faviconUrl: GOOGLE_FAVICON('doubao.com'),
+    faviconSourceUrl: GOOGLE_FAVICON('doubao.com'),
     proxy: '',
     order: 4,
     accounts: [
@@ -74,6 +79,7 @@ const DEFAULT_SITES = [
     color: '#7c3aed',
     icon: '🪟',
     faviconUrl: GOOGLE_FAVICON('copilot.microsoft.com'),
+    faviconSourceUrl: GOOGLE_FAVICON('copilot.microsoft.com'),
     proxy: '',
     order: 5,
     accounts: [
@@ -87,6 +93,7 @@ const DEFAULT_SITES = [
     color: '#4285f4',
     icon: '💎',
     faviconUrl: GOOGLE_FAVICON('gemini.google.com'),
+    faviconSourceUrl: GOOGLE_FAVICON('gemini.google.com'),
     proxy: '',
     order: 6,
     accounts: [
@@ -100,6 +107,7 @@ const DEFAULT_SITES = [
     color: '#20b2aa',
     icon: '🔍',
     faviconUrl: GOOGLE_FAVICON('perplexity.ai'),
+    faviconSourceUrl: GOOGLE_FAVICON('perplexity.ai'),
     proxy: '',
     order: 7,
     accounts: [

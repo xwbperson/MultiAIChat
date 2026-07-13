@@ -8,12 +8,14 @@ const TrayManager = require('./tray-manager');
 const { setupContextMenu } = require('./context-menu');
 const { clearSessionData, resolveProxy, setProxy } = require('./session-manager');
 const faviconManager = require('./favicon-manager');
+const FaviconCache = require('./favicon-cache');
 const { getKeyboardCommand } = require('./keyboard-shortcuts');
 
 let mainWindow;
 let viewManager;
 let hibernationManager;
 let trayManager;
+let faviconCache;
 
 function setAutoLaunch(enable) {
   app.setLoginItemSettings({
@@ -170,6 +172,18 @@ function createWindow() {
     onBeforeInput: handleWebContentsShortcut
   });
   hibernationManager = new HibernationManager(viewManager, configStore);
+  faviconCache = new FaviconCache({
+    getSites: () => configStore.getSites(),
+    updateSite: (siteId, patch) => configStore.updateSite(siteId, patch),
+    getLocalUrl: siteId => faviconManager.getLocalUrl(siteId),
+    fetchAndSave: (url, siteId, proxy) => faviconManager.fetchAndSave(url, siteId, proxy),
+    resolveProxy: site => getEffectiveProxy(site),
+    onUpdated: update => {
+      if (!mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('site:updated', update);
+      }
+    }
+  });
 
   mainWindow.on('resize', () => {
     viewManager.updateAllBounds();
@@ -229,7 +243,7 @@ function createWindow() {
   });
 
   // Config store IPC handlers
-  ipcMain.handle('site:getAll', () => configStore.getSites());
+  ipcMain.handle('site:getAll', () => faviconCache.getSitesForRenderer());
   ipcMain.handle('site:add', (e, site) => configStore.addSite(site));
   ipcMain.handle('site:reorder', (e, siteIds) => configStore.reorderSites(siteIds));
   ipcMain.handle('site:update', async (e, id, data) => {
@@ -361,6 +375,7 @@ function createWindow() {
         console.error('Failed to restore active site after import:', error);
       }
     }
+    faviconCache.warm().catch(error => console.error('Favicon cache refresh failed:', error));
     return result;
   });
   ipcMain.handle('config:clearAllSiteData', async () => {
@@ -546,6 +561,7 @@ function createWindow() {
 
   // Auto-open first site on startup
   mainWindow.webContents.on('did-finish-load', () => {
+    faviconCache.warm().catch(error => console.error('Favicon cache warm-up failed:', error));
     const sites = configStore.getSites();
     if (sites.length > 0) {
       // Sort by order

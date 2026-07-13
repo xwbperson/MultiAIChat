@@ -52,7 +52,9 @@ function normalizeSiteMetadata(input, fallback = {}) {
   const color = String(input.color ?? fallback.color ?? '#89b4fa');
   if (!/^#[0-9a-f]{6}$/i.test(color)) throw new Error('Site color must be a six-digit hex color');
 
-  const faviconUrl = input.faviconUrl ?? fallback.faviconUrl ?? null;
+  const faviconUrl = input.faviconUrl !== undefined
+    ? input.faviconUrl
+    : fallback.faviconUrl ?? null;
   if (faviconUrl) {
     let parsed;
     try {
@@ -65,6 +67,21 @@ function normalizeSiteMetadata(input, fallback = {}) {
     }
   }
 
+  const faviconSourceUrl = input.faviconSourceUrl !== undefined
+    ? input.faviconSourceUrl
+    : fallback.faviconSourceUrl ?? null;
+  if (faviconSourceUrl) {
+    let parsed;
+    try {
+      parsed = new URL(String(faviconSourceUrl));
+    } catch {
+      throw new Error('Favicon source URL is invalid');
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Favicon source URL must use http or https');
+    }
+  }
+
   const shortcut = input.shortcut !== undefined ? input.shortcut : fallback.shortcut;
   return {
     name: normalizeText(input.name, 'Site name', fallback.name),
@@ -72,6 +89,7 @@ function normalizeSiteMetadata(input, fallback = {}) {
     color,
     icon: normalizeText(input.icon, 'Site icon', fallback.icon || '🌐', 32),
     faviconUrl: faviconUrl ? String(faviconUrl) : null,
+    faviconSourceUrl: faviconSourceUrl ? String(faviconSourceUrl) : null,
     proxy: normalizeProxy(input.proxy ?? fallback.proxy ?? ''),
     shortcut: shortcut ? normalizeText(shortcut, 'Shortcut', null, 64) : null
   };
@@ -189,7 +207,7 @@ function createConfigRepository(store, options = {}) {
       throw new Error('Site update must be an object');
     }
     const allowedFields = new Set([
-      'name', 'url', 'color', 'icon', 'faviconUrl', 'proxy', 'shortcut'
+      'name', 'url', 'color', 'icon', 'faviconUrl', 'faviconSourceUrl', 'proxy', 'shortcut'
     ]);
     for (const key of Object.keys(patch || {})) {
       if (!allowedFields.has(key)) throw new Error(`Unsupported site field: ${key}`);
@@ -370,6 +388,7 @@ function createConfigRepository(store, options = {}) {
       url: site.url,
       icon: site.icon,
       faviconUrl: site.faviconUrl || null,
+      faviconSourceUrl: site.faviconSourceUrl || null,
       color: site.color,
       shortcut: site.shortcut || null,
       proxy: site.proxy || '',

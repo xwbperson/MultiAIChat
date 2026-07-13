@@ -4,10 +4,12 @@ const { getWindowState, saveWindowState } = require('./window-manager');
 const configStore = require('./config-store');
 const ViewManager = require('./view-manager');
 const HibernationManager = require('./hibernation-manager');
+const TrayManager = require('./tray-manager');
 
 let mainWindow;
 let viewManager;
 let hibernationManager;
+let trayManager;
 
 function registerShortcuts() {
   const settings = configStore.getSettings();
@@ -57,7 +59,15 @@ function createWindow() {
     viewManager.updateAllBounds();
   });
 
-  mainWindow.on('close', () => {
+  mainWindow.on('close', (e) => {
+    const settings = configStore.getSettings();
+    // If minimizeToTray is enabled and we're not quitting, hide instead of close
+    if (!trayManager?.isQuitting && settings.minimizeToTray) {
+      e.preventDefault();
+      mainWindow.hide();
+      return;
+    }
+    // Actually quitting - do cleanup
     if (hibernationManager) {
       hibernationManager.stopScheduler();
     }
@@ -99,6 +109,14 @@ function createWindow() {
 
   ipcMain.handle('config:export', () => configStore.exportConfig());
   ipcMain.handle('config:import', (e, data) => configStore.importConfig(data));
+
+  // Tray menu event handlers
+  ipcMain.on('open:siteManager', () => {
+    mainWindow.webContents.send('open:siteManager');
+  });
+  ipcMain.on('open:settings', () => {
+    mainWindow.webContents.send('open:settings');
+  });
 
   ipcMain.handle('site:switch', async (e, siteId, accountId) => {
     const sites = configStore.getSites();
@@ -159,11 +177,18 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  trayManager = new TrayManager(mainWindow, configStore);
   registerShortcuts();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  if (trayManager) {
+    trayManager.isQuitting = true;
+  }
 });
 
 app.on('will-quit', () => {

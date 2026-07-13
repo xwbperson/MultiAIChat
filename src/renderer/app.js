@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsPanel = new SettingsPanel();
   const siteManager = new SiteManager(sidebar);
 
+  // Handle tray menu commands
+  window.api.onOpenSiteManager?.(() => siteManager.open());
+  window.api.onOpenSettings?.(() => settingsPanel.open());
+
   const siteManagerBtn = document.createElement('button');
   siteManagerBtn.className = 'sidebar-btn';
   siteManagerBtn.title = '站点管理';

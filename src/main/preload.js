@@ -34,5 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   onMaximizeChanged: (callback) => ipcRenderer.on('window:maximized', (e, isMaximized) => callback(isMaximized)),
   onSiteUpdate: (callback) => ipcRenderer.on('site:updated', (e, data) => callback(data)),
   onBadgeUpdate: (callback) => ipcRenderer.on('badge:update', (e, data) => callback(data)),
-  onHibernateStatus: (callback) => ipcRenderer.on('hibernate:statusChanged', (e, data) => callback(data))
+  onHibernateStatus: (callback) => ipcRenderer.on('hibernate:statusChanged', (e, data) => callback(data)),
+  onOpenSiteManager: (callback) => ipcRenderer.on('open:siteManager', () => callback()),
+  onOpenSettings: (callback) => ipcRenderer.on('open:settings', () => callback())
 });

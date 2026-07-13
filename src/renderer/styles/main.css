@@ -47,6 +47,13 @@ html, body {
   -webkit-app-region: drag;
 }
 
+.app-title {
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
 .titlebar-drag {
   flex: 1;
   height: 100%;

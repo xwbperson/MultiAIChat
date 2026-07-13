@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
 
   // Events from main
+  onMaximizeChanged: (callback) => ipcRenderer.on('window:maximized', (e, isMaximized) => callback(isMaximized)),
   onSiteUpdate: (callback) => ipcRenderer.on('site:updated', (e, data) => callback(data)),
   onBadgeUpdate: (callback) => ipcRenderer.on('badge:update', (e, data) => callback(data)),
   onHibernateStatus: (callback) => ipcRenderer.on('hibernate:statusChanged', (e, data) => callback(data))

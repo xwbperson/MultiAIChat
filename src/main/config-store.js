@@ -124,6 +124,7 @@ function exportConfig() {
     name: site.name,
     url: site.url,
     icon: site.icon,
+    faviconUrl: site.faviconUrl || null,
     color: site.color,
     shortcut: site.shortcut || null,
     proxy: site.proxy || '',

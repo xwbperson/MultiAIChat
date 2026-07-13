@@ -22,6 +22,29 @@ const configStore = new Store({
   }
 });
 
+// Migration: Update existing sites with favicon URLs from defaults
+function migrateFaviconUrls() {
+  const sites = getSites();
+  let updated = false;
+
+  for (const site of sites) {
+    if (!site.faviconUrl) {
+      const defaultSite = DEFAULT_SITES.find(d => d.id === site.id);
+      if (defaultSite && defaultSite.faviconUrl) {
+        site.faviconUrl = defaultSite.faviconUrl;
+        updated = true;
+      }
+    }
+  }
+
+  if (updated) {
+    configStore.set('sites', sites);
+  }
+}
+
+// Run migration on startup
+migrateFaviconUrls();
+
 function getSites() {
   return configStore.get('sites', []);
 }
